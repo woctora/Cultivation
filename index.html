@@ -1,0 +1,1106 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Dokuz Diyar</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&family=VT323&display=swap">
+<style>
+/* Yerleşim: tek sütun oyun konsolu — üstte durum şeridi, ortada piksel sahne, altta dokunmatik tuşlar; menüler tam ekran mürekkep panolar. */
+:root{
+  color-scheme:dark;
+  --ink:#12101c; --panel:#1d1a2e; --panel2:#272340; --line:#4a4370;
+  --paper:#ebe2cb; --dim:#a79fc0; --jade:#5fd0a8; --gold:#e8b84a; --blood:#d8566a; --qi:#6aa8f0;
+  --display:"Pixelify Sans","VT323",ui-monospace,Menlo,monospace;
+  --body:"VT323",ui-monospace,Menlo,Consolas,monospace;
+}
+html,body{height:100%}
+body{background:var(--ink);color:var(--paper);font-family:var(--body);font-size:20px;line-height:1.15;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:10px}
+*{box-sizing:border-box}
+button{font:inherit;color:var(--paper);background:var(--panel2);border:2px solid var(--line);padding:6px 12px;cursor:pointer;border-radius:0;
+  box-shadow:inset -2px -2px 0 rgba(0,0,0,.35)}
+button:hover{border-color:var(--jade)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.primary{background:var(--jade);color:#0e2a22;border-color:#c8f5e4;font-family:var(--display);font-weight:700}
+button.on{border-color:var(--gold);background:#3a3360;color:var(--gold)}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance}
+canvas{image-rendering:pixelated;image-rendering:crisp-edges}
+
+#app{max-width:800px;margin:0 auto;display:flex;flex-direction:column;gap:8px}
+#hud{display:grid;grid-template-columns:1fr auto;gap:4px 14px;background:var(--panel);border:2px solid var(--line);padding:6px 10px}
+#hud .who{font-family:var(--display);color:var(--gold);min-width:0}
+#hud .where{color:var(--dim);text-align:right}
+.bars{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.bar{position:relative;height:18px;background:#0c0a14;border:2px solid var(--line);font-size:16px;line-height:14px;text-align:center;overflow:hidden}
+.bar i{position:absolute;inset:0 auto 0 0;width:50%;background:var(--blood)}
+.bar.qi i{background:var(--qi)} .bar.xp i{background:var(--gold)}
+.bar span{position:relative;text-shadow:1px 1px 0 #000;white-space:nowrap}
+#stage{position:relative;border:2px solid var(--line);background:#000;line-height:0}
+#cv{width:100%;height:auto;display:block;aspect-ratio:320/208}
+#toast{position:absolute;top:8px;left:8px;right:8px;display:flex;flex-direction:column;gap:4px;align-items:center;pointer-events:none;line-height:1.1}
+#toast div{background:rgba(18,16,28,.92);border:2px solid var(--gold);color:var(--gold);padding:3px 10px;max-width:100%}
+#dlg{position:absolute;left:8px;right:8px;bottom:8px;background:rgba(24,21,40,.97);border:2px solid var(--paper);padding:10px 12px;line-height:1.15;z-index:15;cursor:pointer}
+#dlg .who{font-family:var(--display);color:var(--gold);margin-bottom:2px}
+#dlg .txt{white-space:pre-wrap}
+#dlg .hint{color:var(--dim);text-align:right;font-size:16px}
+.choices{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.choices button{text-align:left}
+#pad{display:none;justify-content:space-between;align-items:center;gap:10px;user-select:none;-webkit-user-select:none;touch-action:none}
+.dpad{display:grid;grid-template-columns:repeat(3,52px);grid-template-rows:repeat(3,52px);gap:2px}
+.dpad button,.acts button{touch-action:none;font-size:22px;padding:0}
+.acts{display:grid;grid-template-columns:repeat(2,minmax(76px,1fr));gap:6px}
+.acts button{height:52px}
+#help{color:var(--dim);font-size:17px;margin:0;text-align:center}
+@media (pointer:coarse),(max-width:640px){#pad{display:flex}#help{display:none}}
+@media (max-width:640px){
+  body{font-size:18px}
+  #dlg{position:fixed;left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));bottom:calc(8px + env(safe-area-inset-bottom,0px))}
+  .bars{grid-template-columns:1fr}
+}
+
+.screen{position:fixed;inset:0;z-index:20;background:var(--ink);overflow:auto;
+  padding:calc(14px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) calc(14px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.wrap{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.box{background:var(--panel);border:2px solid var(--line);padding:10px 12px}
+
+#title .wrap{align-items:center;text-align:center;gap:14px}
+#banner{width:100%;max-width:640px;border:2px solid var(--line);aspect-ratio:320/130}
+#title h1{font-size:clamp(40px,11vw,76px);color:var(--gold);letter-spacing:.04em;text-shadow:4px 4px 0 #5a2a30;line-height:.95}
+#title .sub{color:var(--jade);font-size:24px;letter-spacing:.12em;text-transform:uppercase}
+#title p{max-width:54ch;margin:0;color:var(--dim)}
+.row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center}
+.langrow span{color:var(--dim)}
+
+#create h2{color:var(--gold);font-size:30px}
+#create h3{color:var(--gold)}
+.cgrid{display:grid;grid-template-columns:220px 1fr;gap:12px;align-items:start}
+@media (max-width:640px){.cgrid{grid-template-columns:1fr}}
+.pv{display:flex;flex-direction:column;align-items:center;gap:8px}
+#pvc{width:176px;height:176px;background:#2c5a3c;border:2px solid var(--line)}
+.opt{display:grid;grid-template-columns:110px 1fr;gap:8px;align-items:center;padding:5px 0;border-bottom:1px dashed var(--line)}
+.opt:last-child{border-bottom:0}
+.opt>span{color:var(--dim)}
+.opt .vals{display:flex;flex-wrap:wrap;gap:5px;min-width:0}
+.sw{width:28px;height:28px;padding:0;border:2px solid var(--line)}
+.sw.on{border-color:var(--gold);outline:2px solid var(--gold);outline-offset:1px}
+#nm{font:inherit;background:#0c0a14;color:var(--paper);border:2px solid var(--line);padding:5px 8px;width:100%;max-width:260px}
+.fate{min-height:2.4em;color:var(--dim);margin:6px 0}
+.fate b{font-family:var(--display)}
+
+#battle .wrap{gap:10px}
+.fighters{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fighter{display:flex;flex-direction:column;gap:5px;align-items:center;text-align:center;min-width:0}
+.fighter canvas{width:min(100%,192px);aspect-ratio:1;background:linear-gradient(#2a2644 60%,#3a4a3a 60%);border:2px solid var(--line)}
+.fighter .nm{font-family:var(--display);color:var(--gold)}
+.fighter .bar{width:100%}
+#blog{min-height:5.4em;white-space:pre-wrap}
+#bact{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px}
+
+.tabs{display:flex;flex-wrap:wrap;gap:6px}
+#mbody{min-height:50vh}
+#mbody h3{color:var(--gold);margin:10px 0 4px}
+#mbody p{margin:4px 0}
+#mbody canvas{width:100%;max-width:640px;height:auto;display:block;border:2px solid var(--line);background:#0c0a14}
+.item{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px dashed var(--line)}
+.item small{color:var(--dim);font-size:17px;display:block}
+.item div{min-width:0}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 14px}
+.kv span:nth-child(odd){color:var(--dim)}
+.legend{color:var(--dim);font-size:17px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div id="app">
+  <div id="hud" hidden>
+    <div class="who" id="hwho"></div><div class="where" id="hwhere"></div>
+    <div class="bars">
+      <div class="bar"><i id="bhp"></i><span id="thp"></span></div>
+      <div class="bar qi"><i id="bqi"></i><span id="tqi"></span></div>
+      <div class="bar xp"><i id="bxp"></i><span id="txp"></span></div>
+    </div>
+  </div>
+  <div id="stage">
+    <canvas id="cv" width="320" height="208"></canvas>
+    <div id="toast"></div>
+    <div id="dlg" hidden><div class="who" id="dwho"></div><div class="txt" id="dtxt"></div><div class="choices" id="dch"></div><div class="hint" id="dhint" data-tr="▼ devam (E / dokun)" data-en="▼ continue (E / tap)"></div></div>
+  </div>
+  <div id="pad">
+    <div class="dpad">
+      <span></span><button id="pu" aria-label="Up">▲</button><span></span>
+      <button id="pl" aria-label="Left">◀</button><span></span><button id="pr" aria-label="Right">▶</button>
+      <span></span><button id="pd" aria-label="Down">▼</button><span></span>
+    </div>
+    <div class="acts">
+      <button id="pa" class="primary" data-tr="Etkileş" data-en="Interact"></button><button id="pm" data-tr="Meditasyon" data-en="Meditate"></button>
+      <button id="pi" data-tr="Menü" data-en="Menu"></button><button id="pn2" data-tr="Harita" data-en="Map"></button>
+    </div>
+  </div>
+  <p id="help" data-tr="Yürü: WASD / ok tuşları · Etkileşim: E veya Boşluk · Meditasyon: M · Menü: I · Harita: N · Görevler: Q · Seçenekler: 1–9" data-en="Move: WASD / arrows · Interact: E or Space · Meditate: M · Menu: I · Map: N · Quests: Q · Choices: 1–9"></p>
+</div>
+
+<section id="title" class="screen">
+  <div class="wrap">
+    <canvas id="banner" width="320" height="130"></canvas>
+    <div class="row langrow"><span data-tr="Dil" data-en="Language"></span><button id="ltr">Türkçe</button><button id="len">English</button></div>
+    <div class="sub" data-tr="Ölümsüzlük Yolu" data-en="Path to Immortality"></div>
+    <h1 data-tr="DOKUZ DİYAR" data-en="NINE REALMS"></h1>
+    <p data-tr="Dao Takvimi 9872. Ruh gelgiti yükseliyor; yedi bin yıldır kimsenin geçemediği Güney Göksel Kapı'nın silueti Kunlun'un zirvesinde üç kez göründü. Kimin müridi olarak doğacağını kader belirler: ortodoks bir tarikatın avlusunda da uyanabilirsin, bir kan mağarasında da."
+       data-en="Dao Calendar, year 9872. The spirit tide is rising; the South Heavenly Gate, uncrossed for seven thousand years, has appeared three times above Kunlun. Fate decides whose disciple you are born as: you may wake in the courtyard of an orthodox sect, or in a blood cave."></p>
+    <div class="row"><button class="primary" id="bnew" data-tr="Yeni Oyun" data-en="New Game"></button><button id="bcont" hidden data-tr="Devam Et" data-en="Continue"></button></div>
+  </div>
+</section>
+
+<section id="create" class="screen" hidden>
+  <div class="wrap">
+    <h2 data-tr="Müridini Oluştur" data-en="Create Your Disciple"></h2>
+    <div class="cgrid">
+      <div class="pv box">
+        <canvas id="pvc" width="176" height="176"></canvas>
+        <div class="row"><button id="turnl" aria-label="Turn left">◀</button><button id="rnd" data-tr="Rastgele" data-en="Random"></button><button id="turnr" aria-label="Turn right">▶</button></div>
+      </div>
+      <div class="box" id="opts"></div>
+    </div>
+    <div class="box">
+      <h3 data-tr="Ruh Kökü Ölçümü" data-en="Spirit Root Test"></h3>
+      <div class="opt"><span data-tr="Element" data-en="Element"></span><div class="vals" id="elv"></div></div>
+      <p class="fate" id="rootres"></p>
+      <div class="row" style="justify-content:flex-start"><button id="roll"></button></div>
+    </div>
+    <div class="box">
+      <h3 data-tr="Köken (kader belirler)" data-en="Origin (decided by fate)"></h3>
+      <p class="fate" id="origres"></p>
+      <div class="row" style="justify-content:flex-start"><button id="oroll"></button></div>
+    </div>
+    <div class="row"><button id="back" data-tr="Geri" data-en="Back"></button><button class="primary" id="start" disabled data-tr="Yola Çık" data-en="Set Out"></button></div>
+  </div>
+</section>
+
+<section id="battle" class="screen" hidden>
+  <div class="wrap">
+    <div class="fighters">
+      <div class="fighter box"><div class="nm" id="pn"></div><canvas id="pc" width="96" height="96"></canvas>
+        <div class="bar"><i id="pbh"></i><span id="pth"></span></div><div class="bar qi"><i id="pbq"></i><span id="ptq"></span></div></div>
+      <div class="fighter box"><div class="nm" id="en"></div><canvas id="ec" width="96" height="96"></canvas>
+        <div class="bar"><i id="ebh"></i><span id="eth"></span></div><div id="eel"></div></div>
+    </div>
+    <div class="box" id="blog"></div>
+    <div id="bact"></div>
+  </div>
+</section>
+
+<section id="menu" class="screen" hidden>
+  <div class="wrap">
+    <div class="tabs" id="mtabs"></div>
+    <div class="box" id="mbody"></div>
+  </div>
+</section>
+
+<script>
+(()=>{'use strict';
+const $=s=>document.querySelector(s);
+const cv=$('#cv'),cx=cv.getContext('2d');
+const TS=16,VW=20,VH=13;
+const rnd=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+const pick=a=>a[rnd(0,a.length-1)];
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function rng(seed){let s=seed>>>0;return()=>{s=(Math.imul(s,1664525)+1013904223)>>>0;return s/4294967296}}
+function shade(h,f){const n=parseInt(h.slice(1),16);let r=n>>16,g=n>>8&255,b=n&255;const t=f<0?0:255,a=Math.abs(f);
+  r=Math.round(r+(t-r)*a);g=Math.round(g+(t-g)*a);b=Math.round(b+(t-b)*a);return`rgb(${r},${g},${b})`}
+
+/* ---------- Dil ---------- */
+let P=null,scene='title',busy=false,cur=null,animT=0,C=null;
+let LANG=0;try{LANG=+localStorage.getItem('dd_lang')||0}catch(e){}
+const T=(a,b)=>LANG?b:a;
+const tx=v=>Array.isArray(v)?v[LANG]:v;
+function applyLang(){document.querySelectorAll('[data-tr]').forEach(e=>{e.textContent=LANG?e.dataset.en:e.dataset.tr});
+  $('#ltr').className=LANG?'':'on';$('#len').className=LANG?'on':'';try{localStorage.setItem('dd_lang',LANG)}catch(e){}
+  if(scene==='create'&&C)drawCreate();if(P)hud()}
+
+/* ---------- Veri ---------- */
+const EL={metal:{n:['Metal','Metal'],c:'#e8e4d8'},wood:{n:['Ağaç','Wood'],c:'#5fd08a'},water:{n:['Su','Water'],c:'#5a9cf0'},fire:{n:['Ateş','Fire'],c:'#f06a4a'},earth:{n:['Toprak','Earth'],c:'#d8a850'},thunder:{n:['Yıldırım','Thunder'],c:'#b78af5'}};
+const BEATS={wood:'earth',earth:'water',water:'fire',fire:'metal',metal:'wood'};
+function elMult(a,d){if(!a)return 1;if(a==='thunder')return 1.2;if(BEATS[a]===d)return 1.5;if(BEATS[d]===a)return .75;return 1}
+const ROOTS={
+  gok:{n:['Göksel Ruh Kökü','Heavenly Spirit Root'],d:['Tek ve saf element. On bin kişide bir görülür; Qi su gibi akar.','A single pure element. One in ten thousand; Qi flows like water.'],m:1.6,w:10},
+  cift:{n:['Çift Ruh Kökü','Dual Spirit Root'],d:['İki element. Yüz kişide bir; tarikatların gözdesi.','Two elements. One in a hundred; prized by the sects.'],m:1.3,w:28},
+  uc:{n:['Üçlü Ruh Kökü','Triple Spirit Root'],d:['Orta hâlli yetenek. Sabırla Altın Çekirdek mümkündür.','Middling talent. With patience, Golden Core is within reach.'],m:1.0,w:34},
+  dort:{n:['Dörtlü Ruh Kökü','Quad Spirit Root'],d:['Qi karışık akar. Yol yavaş ama kapalı değil.','Qi runs muddled. The road is slow, not closed.'],m:.8,w:20},
+  bes:{n:['Beşli Ruh Kökü','Five-Element Root'],d:['"Sahte kök" derler. Qi dağılır; ama beş element dengededir: hiçbir elemente karşı zayıflığın yok, bedenin dayanıklı.','They call it a "false root". Qi scatters, but the five elements are in balance: no elemental weakness and a sturdier body.'],m:.65,w:8}};
+const ORIG={
+  jade:{n:['Yeşim Boşluk Sarayı Müridi','Jade Void Palace Disciple'],w:30,
+    d:['Ortodoks yolun merkezi Kunlun\'da başlarsın. Dengeli bir başlangıç; meditasyonun %10 daha verimli.','You begin on Kunlun, heart of the orthodox path. A balanced start; meditation is 10% more efficient.']},
+  shu:{n:['Shu Dağı Kılıç Müridi','Shu Mountain Sword Disciple'],w:20,
+    d:['Kılıç Tarikatı\'ndan Kunlun\'a gönderilmiş konuk müritsin. Kılıcın +1 başlar, kritik vuruş şansın %25.','A guest disciple sent from the Sword Sect to Kunlun. Your sword starts at +1 and you crit 25% of the time.']},
+  danxia:{n:['Dan Xia Vadisi Simya Çırağı','Danxia Valley Alchemy Apprentice'],w:15,
+    d:['Simya vadisinden Kunlun\'a gelen çırak. Kazanın hiç patlamaz, haplarla başlarsın; ama kılıçta zayıfsın (−2 saldırı).','An apprentice from the pill valley, visiting Kunlun. Your cauldron never fails and you start with pills, but you are weak with the blade (−2 attack).']},
+  rogue:{n:['Başıboş Gezgin','Rogue Cultivator'],w:20,
+    d:['Tarikatsız, ustasız. Qingshi Kasabası\'nda başlarsın; önce kendine usta bulmalısın. Kaçmakta ve pazarlıkta ustasın.','No sect, no master. You start in Qingshi Town and must first find a master. You excel at fleeing and haggling.']},
+  blood:{n:['Kan Tanrısı Tarikatı Müridi','Blood God Cult Disciple'],w:15,
+    d:['ŞEYTANİ YOL. Kan Mağarası\'nda uyanırsın. Kunlun sana kapalıdır, gök yıldırımı sana daha sert vurur; ama kan teknikleri ve canavar çekirdekleri seni hızla güçlendirir.','DEMONIC PATH. You wake in the Blood Cave. Kunlun is closed to you and heaven\'s lightning hits you harder, but blood arts and beast cores make you strong fast.']}};
+const SKINS=['#f6dcc0','#eac39c','#d4a074','#a8744c','#6e4a30','#fbe8dc','#e8b8a0','#b8c4c8'];
+const HAIRC=['#1c1a24','#4a2c1a','#e6e6f0','#b03a2a','#3a5cc0','#7a48b8','#d8b048','#8a8a96','#2e8a6a','#e88aa8','#102a4a','#e87a2a'];
+const EYEC=['#2a2030','#3a6ad0','#2f8a50','#c03a3a','#b8861e','#8a48c8','#30b0b8','#d8d8e0'];
+const ROBEC=['#e8e8f0','#3a6ab8','#2e8a6a','#b03a3a','#6a3a9a','#2a2a36','#d0a040','#f0a0b8','#7ac8e8','#8a1a2a','#1a4a3a','#e87a2a','#8a6a4a','#f4f0d8'];
+const HSTYLE=[['Kısa','Short'],['Uzun','Long'],['Topuz','Topknot'],['At Kuyruğu','Ponytail'],['Çift Topuz','Twin Buns'],['Kel','Bald'],['Dikenli','Spiky'],['Örgü','Braid']];
+const BUILD=[['İnce','Slim'],['Orta','Medium'],['Yapılı','Broad']];
+const OUTFIT=[['Uzun Cübbe','Long Robe'],['Savaşçı Kıyafeti','Warrior Garb'],['Geniş Kollu','Wide Sleeves'],['Pelerinli','Cloaked'],['Kolsuz Dövüşçü','Sleeveless'],['Asil Kıyafet','Noble Attire']];
+const ACC=[['Yok','None'],['Yeşim Toka','Jade Pin'],['Alın Bandı','Headband'],['Alın Nişanı','Brow Mark'],['Göz Bandı','Eyepatch'],['Peçe','Veil'],['Hasır Şapka','Straw Hat'],['Boynuz','Horns'],['Çiçek','Flower'],['Küpe','Earrings']];
+const T1={metal:['Altın Kenar Kılıç Qi\'si','Golden Edge Sword Qi'],wood:['Sarmaşık Kırbacı','Vine Lash'],water:['Buz İğnesi','Ice Needle'],fire:['Ateş Topu','Fireball'],earth:['Kaya Yumruğu','Stone Fist'],thunder:['Avuç İçi Yıldırımı','Palm Thunder']};
+
+const ITEMS={
+  ot:{n:['Ruh Toplama Otu','Spirit Gathering Grass'],d:['1. kademe ruh otu. Qi Toplama Hapı\'nın ana malzemesi.','Tier-1 spirit herb. Main ingredient of the Qi Gathering Pill.'],v:3},
+  ginseng:{n:['Kan Ginsengi','Blood Ginseng'],d:['2. kademe şifalı kök. Küçük Dönüş Hapı\'na girer.','Tier-2 healing root. Used in the Lesser Restoration Pill.'],v:10},
+  cekirdek:{n:['Canavar Çekirdeği','Beast Core'],d:['Canavarların karnındaki öz. Simyada ve demircilikte kullanılır. Çiğ yutmak hızlı gelişim verir ama şeytani yola puan yazar.','Essence from a beast\'s belly. Used in alchemy and smithing. Swallowing it raw gives fast cultivation but adds to the demonic path.'],v:8,eat:1},
+  mantar:{n:['Yeşim İliği Mantarı','Jade Marrow Mushroom'],d:['Yüz yıllık ruh mantarı. Temel Kurma Hapı\'nın ana malzemesi.','A century-old spirit mushroom. Main ingredient of the Foundation Pill.'],v:0},
+  qihap:{n:['Qi Toplama Hapı','Qi Gathering Pill'],d:['40 Qi yeniler, biraz gelişim kazandırır.','Restores 40 Qi and grants a little cultivation.'],v:6,use:1},
+  sifahap:{n:['Küçük Dönüş Hapı','Lesser Restoration Pill'],d:['60 Can yeniler.','Restores 60 HP.'],v:7,use:1},
+  tilsim:{n:['Ateş Topu Tılsımı','Fireball Talisman'],d:['Yalnızca savaşta. Tek kullanımlık, 40 ateş hasarı.','Battle only. Single use, 40 fire damage.'],v:5},
+  temelhap:{n:['Temel Kurma Hapı','Foundation Pill'],d:['Temel Kurma şansını %30 artırır. Ömürde yalnızca bir tanesi işe yarar.','+30% Foundation Establishment chance. Only one works in a lifetime.'],v:0},
+  yesim:{n:['Yeşim Kolye','Jade Pendant'],d:['Üzerinde "Su" hanedan mührü var. Birinin kayıp eşyası.','Bears the seal of the Su clan. Someone lost this.'],v:0}};
+
+const SPR={
+ fox:{p:{o:'#e8843a',w:'#fff4e0',k:'#1c1a24',d:'#8a4a20'},r:["................","..o.....o.......","..oo...oo....ww.","..ooooooo...oow.","..okoookoo.ooo..","..ooooooo.ooo...","...owwwo.ooo.ow.","....ooooooooooow","....oooooooooo..","....ooooooooo.ow","....oo.oo.ooooow","....o..o..o.o...","....d..d..d.d..."]},
+ wolf:{p:{g:'#6e7284',s:'#b8c0d0',r:'#e03a3a',w:'#f0f0f0',k:'#22222c'},r:["................",".g...g..........",".gg.gg..........",".ggggggssssss...",".grggrgsssssss.g",".ggggggggggggggg","..gwwggggggggg..","...gggggggggggg.","....ggggggggggg.","....gg.gg..gg.g.","....g..g...g..g.","....k..k...k..k."]},
+ imp:{p:{g:'#5a9a4a',n:'#3a2a1a',y:'#ffe040',k:'#1c1a24',b:'#6a4a2a'},r:["................","...n......n.....","...nn.gg.nn.....","....gggggg......","...gygggygg.....","...gggggggg.....","...ggkkkkgg.....","....gggggg......","..bbgggggbbb....",".g.bbbbbbb.g....",".g.bbbbbbb.g....","...bbb.bbb......","...gg...gg......"]},
+ bone:{p:{w:'#e8e4d4',k:'#22202a'},r:["....wwwwww......","...wwwwwwww.....","...wkkwwkkw.....","...wkkwwkkw.....","...wwwkwwww.....","....wkwkww......","......ww........","..wwwwwwwwww....","..w.wwkwww.w....","..w..wwww..w....","..w.wwkwww.w....","....ww..ww......","....ww..ww......","...www..www....."]},
+ jiang:{p:{k:'#1c1a2a',r:'#c03a3a',e:'#a8c8a0',y:'#f0d040',b:'#2a3a7a'},r:["....kkkkkk......","...kkkrrkkk.....","..kkkkkkkkkk....","....eyyyee......","....eyyyee......","....eyyeee......","....eeeeee......","..bbbbbbbbbeee..","..bbbbbbbbb.....","...bbbybbb......","...bbbbbbb......","...bbbbbbb......","...bb...bb......","...kk...kk......"]},
+ mosq:{p:{k:'#1c1a24',r:'#d02a3a'},r:["..k.....r.k.....",".krk...kr.......","..k..k....k.rk..","....krk....krk..",".r...k..rk..k...","...k...krk......","..krk...k...k...","...k..r....krk..",".......k....k...","..k...krk.r.....",".krk...k....k...","..k.......krk..."]},
+ cloud:{p:{d:'#4a4a66',y:'#c8a0ff'},r:["....dddddd......","..dddddddddd....",".dddddddddddd...","dddddddddddddd..",".dddddddddddd...","......yy........",".....yy.........","....yyyy........","......yy........",".....yy.........","....yy..........","....y..........."]}};
+const NL=(g,skin,hair,hs,eye,robe,build,acc,robe2,outfit)=>({g,skin,hair,hs,eye,robe,build,acc,robe2:robe2||'#c8a040',outfit:outfit||0});
+const ENEMIES={
+  tilki:{n:['Üç Kuyruklu Ruh Tilkisi','Three-Tailed Spirit Fox'],el:'fire',hp:26,atk:8,def:2,xp:14,st:[3,7],drop:[['cekirdek',.25]],spr:'fox'},
+  kurt:{n:['Demir Sırtlı Kurt','Ironback Wolf'],el:'metal',hp:34,atk:10,def:4,xp:18,st:[4,9],drop:[['cekirdek',.35]],spr:'wolf'},
+  cin:{n:['Dağ Cini','Mountain Imp'],el:'wood',hp:28,atk:9,def:3,xp:15,st:[2,8],drop:[['ginseng',.35],['ot',.4]],spr:'imp'},
+  ytilki:{n:['Yaralı Tilki Ruhu','Wounded Fox Spirit'],el:'fire',hp:30,atk:7,def:2,xp:20,st:[0,0],drop:[],spr:'fox'},
+  kemik:{n:['Kemik İblis','Bone Fiend'],el:'earth',hp:70,atk:19,def:8,xp:45,st:[8,16],drop:[['cekirdek',.4]],spr:'bone'},
+  ceset:{n:['Sıçrayan Ceset','Hopping Corpse'],el:'water',hp:92,atk:22,def:10,xp:60,st:[10,20],drop:[['cekirdek',.5]],spr:'jiang'},
+  sinek:{n:['Kan Kanatlı Sivrisinek Sürüsü','Bloodwing Mosquito Swarm'],el:'fire',hp:56,atk:24,def:4,xp:50,st:[6,14],drop:[['ginseng',.3]],spr:'mosq'},
+  murid:{n:['Kan Müridi Xue Sha','Blood Disciple Xue Sha'],el:'water',hp:270,atk:31,def:12,xp:320,st:[90,120],drop:[],boss:1,
+    look:NL(0,'#d8c8c0','#3a0a14',1,'#e02a3a','#7a1420',1,3,'#1c1a24',3)}};
+
+/* ---------- Oyuncu ---------- */
+const need=L=>25+L*L*6;
+function realm(L){if(L<=10)return T('Qi Arıtma '+L+'. Katman','Qi Refining · Layer '+L);
+  if(L<=14)return T('Temel Kurma · ','Foundation · ')+[['Erken','Early'],['Orta','Mid'],['Geç','Late'],['Zirve','Peak']][L-11][LANG]+T(' Evre',' Stage');return T('Altın Çekirdek','Golden Core')}
+const isDemon=()=>P.faction==='d';
+function stats(){const L=P.L,b=P.root==='bes'?1.2:1;
+  return{maxhp:Math.round((40+L*12+(L>10?60:0)+(L>14?150:0))*b),maxqi:20+L*8+(L>10?40:0)+(L>14?80:0),
+    atk:6+L*2+P.wpn*3+(L>10?8:0)+(L>14?14:0)-(P.origin==='danxia'?2:0),def:2+L+(P.flags.mirror?3:0)+(L>10?4:0)}}
+function techs(){const t=[];
+  if(P.L>=2)t.push({n:tx(T1[P.el]),cost:8,pow:1.7,el:P.el});
+  if(P.demon>=3)t.push({n:T('Kan Gölgesi Pençesi','Blood Shadow Claw'),cost:10,pow:1.9,el:'water',ls:.5});
+  if(P.L>=4)t.push({n:T('Qi Dolaşımı','Qi Circulation'),cost:12,heal:.35});
+  if(P.L>=6)t.push({n:T('Kılıç Sürme Sanatı','Flying Sword Art'),cost:16,pow:2.4,el:P.el});
+  if(P.demon>=8)t.push({n:T('Ruh Yutan Sancak','Soul-Devouring Banner'),cost:22,pow:3.0,el:null,ls:.3});
+  if(P.L>=11)t.push({n:T('Beş Yıldırım Yöntemi','Five Thunders Method'),cost:30,pow:3.4,el:'thunder'});
+  return t}
+function lookOf(l){return{g:l.g,skin:SKINS[l.skin],hair:HAIRC[l.hair],hs:l.hs,eye:EYEC[l.eye],robe:ROBEC[l.robe],robe2:ROBEC[l.robe2],outfit:l.outfit,build:l.build,acc:l.acc}}
+function give(id,n=1){P.inv[id]=(P.inv[id]||0)+n;toast(`+${n} ${tx(ITEMS[id].n)}`)}
+function has(id,n=1){return(P.inv[id]||0)>=n}
+function take(id,n=1){P.inv[id]=(P.inv[id]||0)-n;if(P.inv[id]<=0)delete P.inv[id]}
+function stones(n){P.st+=n;toast((n>0?'+':'')+n+T(' ruh taşı',' spirit stones'))}
+function addDemon(n){P.demon+=n;toast(T(`Şeytani yol +${n}`,`Demonic path +${n}`));
+  if(P.demon>=3&&P.demon-n<3)toast(T('Yeni teknik: Kan Gölgesi Pençesi','New technique: Blood Shadow Claw'));
+  if(P.demon>=8&&P.demon-n<8)toast(T('Yeni teknik: Ruh Yutan Sancak','New technique: Soul-Devouring Banner'))}
+function addKarma(n){P.karma+=n;toast(n>0?T('Erdem arttı','Virtue increased'):T('Erdem azaldı','Virtue decreased'))}
+function demonRank(){const d=P.demon;return d<=0?T('Lekesiz','Untainted'):d<3?T('Gölge düşmüş','Shadowed'):d<6?T('Şeytani eğilim','Demonic leaning'):d<10?T('Şeytani kültivatör','Demonic cultivator'):T('Şeytan efendisi adayı','Demon lord in the making')}
+function heal(){const s=stats();P.hp=s.maxhp;P.qi=s.maxqi}
+function gainXp(n){
+  n=Math.round(n);
+  while(n>0){
+    const nd=need(P.L);
+    if(P.L===10||P.L===14||P.L>=15){P.xp=Math.min(nd,P.xp+n);
+      if(P.xp>=nd&&P.L<15&&!P.capMsg){P.capMsg=1;toast(P.L===10?T('Darboğaz! Temel Kurma için meditasyona otur.','Bottleneck! Meditate to attempt Foundation.'):T('Darboğaz! Gök felaketi için meditasyona otur.','Bottleneck! Meditate to face the tribulation.'))}
+      break}
+    const room=nd-P.xp;
+    if(n>=room){n-=room;P.xp=0;P.L++;P.capMsg=0;heal();toast(T('Atılım! ','Breakthrough! ')+realm(P.L));
+      const nt={2:tx(T1[P.el]),4:T('Qi Dolaşımı','Qi Circulation'),6:T('Kılıç Sürme Sanatı','Flying Sword Art')}[P.L];if(nt)toast(T('Yeni teknik: ','New technique: ')+nt)}
+    else{P.xp+=n;n=0}
+  }
+  hud()}
+
+/* ---------- Karakter çizimi ---------- */
+function drawChar(c,ox,oy,L,dir,fr){
+  const p=(x,y,w,h,col)=>{c.fillStyle=col;c.fillRect(ox+x,oy+y,w,h)};
+  const c1=L.robe,c2=L.robe2||'#c8a040',of=L.outfit||0,dk=shade(c1,-.28),hair=L.hair,shoe='#241c2a',bald=L.hs===5,gold='#e8b84a';
+  const bw=L.build===0?6:L.build===2?10:8,bx=8-bw/2,flare=L.g===1||of===2;
+  p(4,15,8,1,'rgba(0,0,0,.28)');
+  if(L.hs===1&&dir!==3){if(dir===0){p(3,6,1,6,hair);p(12,6,1,6,hair)}else if(dir===1)p(10,7,3,5,hair);else p(3,7,3,5,hair)}
+  if(L.hs===3&&dir===0){p(12,1,2,2,hair);p(13,3,1,6,hair)}
+  if(L.hs===7&&dir!==3)p(dir===2?3:12,6,1,7,hair);
+  if(of===3&&dir!==3)p(bx-2,8,bw+4,6,shade(c2,-.25));
+  if(fr!==2)p(5,14,2,1,shoe);if(fr!==1)p(9,14,2,1,shoe);
+  if(of===1||of===4){p(bx,8,bw,4,c1);p(bx,12,bw,2,c2);p(7,12,2,2,shade(c2,-.4))}
+  else{p(bx,8,bw,6,c1);if(flare)p(bx-1,12,bw+2,2,c1);p(bx,13,bw,1,dk);if(flare)p(bx-1,13,bw+2,1,dk)}
+  if(L.g===0&&of!==4)p(bx-1,8,bw+2,2,c1);
+  if(of===5&&dir!==3)p(7,8,2,6,c2);
+  p(bx,10,bw,1,c2);
+  const slv=of===4?L.skin:dk;
+  if(dir===0||dir===3){
+    if(of===2){p(bx-2,8,2,5,c1);p(bx+bw,8,2,5,c1);p(bx-2,12,2,1,c2);p(bx+bw,12,2,1,c2)}
+    else{p(bx-1,8,1,4,slv);p(bx+bw,8,1,4,slv);if(of===1){p(bx-1,11,1,1,c2);p(bx+bw,11,1,1,c2)}if(dir===0){p(bx-1,12,1,1,L.skin);p(bx+bw,12,1,1,L.skin)}}
+    if(dir===0){
+      if(of===2){p(6,8,4,1,c2);p(7,9,2,1,c2)}else if(of===4)p(7,8,2,1,L.skin);else if(of!==5)p(7,8,2,2,dk);
+      if(of===3){p(bx-1,8,bw+2,1,c2);p(bx-2,8,1,6,c2);p(bx+bw+1,8,1,6,c2);p(7,8,2,1,gold)}}
+    else if(of===3)p(bx-1,8,bw+2,6,c2);
+  }else{
+    if(of===2){p(6,9,4,3,c1);p(6,12,4,1,c2)}else{p(7,9,2,3,slv);p(7,12,2,1,L.skin)}
+    if(of===3)p(dir===1?bx+bw-2:bx-1,8,3,6,c2)}
+  p(4,2,8,6,L.skin);
+  if(dir===0){if(!bald){p(4,1,8,2,hair);p(3,2,1,4,hair);p(12,2,1,4,hair);p(4,3,2,1,hair);p(10,3,2,1,hair)}
+    p(6,5,1,1,L.eye);p(9,5,1,1,L.eye);if(L.g===1){p(5,6,1,1,'#e89a9a');p(10,6,1,1,'#e89a9a')}}
+  else if(dir===3){if(!bald){p(4,1,8,6,hair);p(3,2,1,4,hair);p(12,2,1,4,hair)}}
+  else if(dir===1){if(!bald){p(4,1,8,2,hair);p(8,3,4,4,hair);p(12,2,1,4,hair)}p(5,5,1,1,L.eye)}
+  else{if(!bald){p(4,1,8,2,hair);p(4,3,4,4,hair);p(3,2,1,4,hair)}p(10,5,1,1,L.eye)}
+  if(L.hs===1&&dir===3)p(4,7,8,5,hair);
+  if(L.hs===2){p(6,-1,4,2,hair);p(5,0,1,1,'#5fd0a8');p(10,0,1,1,'#5fd0a8')}
+  if(L.hs===3){if(dir===3){p(7,0,2,1,hair);p(7,7,2,6,hair)}else if(dir===1){p(12,2,2,2,hair);p(13,4,1,5,hair)}else if(dir===2){p(2,2,2,2,hair);p(2,4,1,5,hair)}}
+  if(L.hs===4){p(3,0,3,2,hair);p(10,0,3,2,hair)}
+  if(L.hs===6){p(4,0,1,1,hair);p(6,0,2,1,hair);p(9,0,1,1,hair);p(11,0,1,1,hair);p(3,1,1,1,hair);p(12,1,1,1,hair)}
+  if(L.hs===7&&dir===3){p(7,7,2,7,hair);p(7,12,2,1,c2)}
+  const a=L.acc;
+  if(a===1)p(7,1,2,1,'#5fd0a8');
+  if(a===2){p(4,3,8,1,'#c03a3a');if(dir===3)p(11,4,1,3,'#c03a3a')}
+  if(a===3&&dir===0)p(7,3,2,1,'#e0304a');
+  if(a===4){if(dir===0){p(8,4,3,2,'#16141c');p(4,3,4,1,'#16141c')}else if(dir===2)p(9,4,3,2,'#16141c');else if(dir===3)p(4,3,8,1,'#16141c')}
+  if(a===5){const v='#eeeaf4';if(dir===0)p(4,6,8,2,v);else if(dir===1)p(4,6,5,2,v);else if(dir===2)p(7,6,5,2,v)}
+  if(a===6){const s='#d8b868';p(6,-1,4,1,s);p(4,0,8,1,s);p(2,1,12,1,s);p(3,2,10,1,'#a8884a')}
+  if(a===7){const h='#8a1a2a';p(4,0,1,2,h);p(3,-1,1,1,h);p(11,0,1,2,h);p(12,-1,1,1,h)}
+  if(a===8){const fxp=dir===1?4:10;p(fxp,1,2,2,'#f080a0');p(fxp+(dir===1?0:1),2,1,1,'#ffe060')}
+  if(a===9){if(dir===0){p(3,6,1,2,gold);p(12,6,1,2,gold)}else if(dir===1)p(9,6,1,2,gold);else if(dir===2)p(6,6,1,2,gold)}
+}
+function drawSpr(c,s,ox,oy,sc=1){s.r.forEach((row,y)=>{for(let x=0;x<row.length;x++){const ch=row[x];if(ch!=='.'){c.fillStyle=s.p[ch];c.fillRect(ox+x*sc,oy+y*sc,sc,sc)}}})}
+
+/* ---------- Karolar ---------- */
+const SOLID='TtW#RrDMxgcLB';
+const MINI={'.':'#4d9950',',':'#3c7c40','f':'#5aa85c','p':'#c9a877','s':'#a3a3b0','A':'#7fe8d8','Z':'#e04a5a','T':'#2c6e3a','t':'#e88aa8','W':'#3b7cc4','B':'#8a1a2a','b':'#8a6238','#':'#e6dfcc','R':'#2b6f6c','r':'#a8443a','D':'#7a2a24','M':'#77778a','d':'#4a4452','x':'#2a2228','g':'#8a8a96','c':'#cfe0f0','L':'#d8402a','K':'#5a2a30'};
+const tiles={};
+function mkTiles(){
+  const px=(c,x,y,w,h,col)=>{c.fillStyle=col;c.fillRect(x,y,w,h)};
+  const fill=(c,col)=>px(c,0,0,16,16,col);
+  const spk=(c,r,cols,n)=>{for(let i=0;i<n;i++)px(c,r()*16|0,r()*16|0,1,1,cols[i%cols.length])};
+  const grass=(c,r)=>{fill(c,'#4d9950');spk(c,r,['#458c48','#5aa85c'],12)};
+  const dark=(c,r)=>{fill(c,'#4a4452');spk(c,r,['#403a48','#5a5462'],12)};
+  const stone=(c,r)=>{fill(c,'#a3a3b0');px(c,0,15,16,1,'#85859a');px(c,15,0,1,16,'#85859a');px(c,0,0,16,1,'#b8b8c4');spk(c,r,['#9696a4'],4)};
+  const wall=c=>{fill(c,'#e6dfcc');px(c,0,0,16,2,'#6a4428');px(c,0,0,1,16,'#6a4428');px(c,0,14,16,2,'#8a8a94')};
+  const tree=(c,a,b,d)=>{px(c,7,10,2,5,'#5a3a22');px(c,3,2,10,8,a);px(c,2,4,12,4,a);px(c,5,1,6,1,a);px(c,5,3,3,2,b);px(c,9,6,2,1,b);px(c,4,9,8,1,d)};
+  const roof=(c,a,b,d)=>{fill(c,a);for(let y=0;y<16;y+=4){px(c,0,y+3,16,1,d);for(let x=(y/4%2)*2;x<16;x+=4)px(c,x,y,1,3,b)}};
+  const ring=(c,bg,ln,ct)=>{fill(c,bg);px(c,3,3,10,1,ln);px(c,3,12,10,1,ln);px(c,3,3,1,10,ln);px(c,12,3,1,10,ln);px(c,7,7,2,2,ct)};
+  const D={
+   '.':grass,
+   ',':(c,r)=>{fill(c,'#448a48');for(let i=0;i<8;i++){const x=r()*15|0,y=4+(r()*10|0);px(c,x,y,1,3,'#2f6e38');px(c,x+1,y-1,1,2,'#6cbf62')}},
+   'f':(c,r)=>{grass(c,r);for(let i=0;i<3;i++)px(c,2+(r()*12|0),2+(r()*12|0),1,1,['#f4a0c0','#fff0a0','#ffffff'][i])},
+   'p':(c,r)=>{fill(c,'#c9a877');spk(c,r,['#b89766','#d8ba8a'],10)},
+   's':stone,
+   'A':c=>ring(c,'#5e5e80','#7fe8d8','#c8fff4'),
+   'Z':c=>ring(c,'#40202a','#e04a5a','#ffb0b8'),
+   'T':(c,r)=>{grass(c,r);tree(c,'#2c6e3a','#3f8f4c','#1f5230')},
+   't':(c,r)=>{grass(c,r);tree(c,'#e88aa8','#f8c0d0','#c0607e')},
+   'W':(c,r,v)=>{fill(c,'#3b7cc4');px(c,(2+v*3)%12,4,4,1,'#74b0e6');px(c,(8+v*5)%12,11,3,1,'#74b0e6')},
+   'B':(c,r,v)=>{fill(c,'#8a1a2a');px(c,(2+v*3)%12,4,4,1,'#c8404e');px(c,(8+v*5)%12,11,3,1,'#c8404e')},
+   'b':c=>{fill(c,'#8a6238');for(let y=3;y<16;y+=4)px(c,0,y,16,1,'#6e4c2a');px(c,0,0,1,16,'#5a3a20');px(c,15,0,1,16,'#5a3a20')},
+   '#':wall,
+   'R':c=>roof(c,'#2b6f6c','#3f908b','#1e5553'),
+   'r':c=>roof(c,'#a8443a','#c96a5a','#7e2e28'),
+   'D':c=>{wall(c);px(c,3,2,10,14,'#7a2a24');px(c,7,2,1,14,'#4e1814');px(c,6,9,1,1,'#e8b84a');px(c,9,9,1,1,'#e8b84a')},
+   'M':(c,r)=>{dark(c,r);px(c,2,4,12,10,'#77778a');px(c,4,2,8,2,'#77778a');px(c,3,5,5,3,'#9494a6');px(c,2,13,12,1,'#55556a')},
+   'd':dark,
+   'x':(c,r)=>{dark(c,r);const k='#2a2228';px(c,7,5,2,10,k);px(c,4,4,3,1,k);px(c,3,2,1,2,k);px(c,9,6,4,1,k);px(c,12,3,1,3,k);px(c,6,2,1,3,k)},
+   'g':(c,r)=>{dark(c,r);px(c,5,4,6,10,'#8a8a96');px(c,6,3,4,1,'#8a8a96');px(c,7,6,2,5,'#5e5e6c');px(c,3,14,10,1,'#3a343f')},
+   'c':(c,r)=>{fill(c,'#cfe0f0');for(let i=0;i<3;i++){const x=r()*10|0,y=r()*11|0;px(c,x,y+1,7,3,'#ffffff');px(c,x+1,y,5,1,'#ffffff');px(c,x+1,y+4,5,1,'#b4c8e0')}},
+   'L':(c,r)=>{stone(c,r);px(c,7,8,2,7,'#5a3a22');px(c,5,2,6,6,'#d8402a');px(c,6,3,4,4,'#ffd060');px(c,5,1,6,1,'#3a2a20')},
+   'K':c=>{fill(c,'#5a2a30');px(c,0,15,16,1,'#40181e');px(c,15,0,1,16,'#40181e');px(c,6,6,4,4,'#a03040')}};
+  for(const k in D){tiles[k]=[];for(let v=0;v<4;v++){const t=document.createElement('canvas');t.width=t.height=16;D[k](t.getContext('2d'),rng(k.charCodeAt(0)*97+v*31+5),v);tiles[k].push(t)}}
+}
+
+/* ---------- Haritalar ---------- */
+const grid=(w,h,f)=>Array.from({length:h},()=>Array(w).fill(f));
+function rect(m,x,y,w,h,t){for(let j=0;j<h;j++)for(let i=0;i<w;i++)if(m[y+j]&&m[y+j][x+i]!==undefined)m[y+j][x+i]=t}
+function border(m,t,n=1){const h=m.length,w=m[0].length;rect(m,0,0,w,n,t);rect(m,0,h-n,w,n,t);rect(m,0,0,n,h,t);rect(m,w-n,0,n,h,t)}
+function scatter(m,t,n,r,on){const h=m.length,w=m[0].length;for(let i=0;i<n;i++){const x=r()*w|0,y=r()*h|0;if(on.includes(m[y][x]))m[y][x]=t}}
+function house(m,x,y,w,h,rf){rect(m,x,y,w,h-2,rf);rect(m,x,y+h-2,w,2,'#');m[y+h-1][x+(w>>1)]='D'}
+const MAPS={};
+function mkMaps(){
+  let m,r;
+  r=rng(11);m=grid(32,24,'.');scatter(m,'t',34,r,'.');scatter(m,'f',45,r,'.');border(m,'c',2);
+  rect(m,9,9,14,8,'s');rect(m,3,7,26,2,'s');
+  house(m,11,2,10,5,'R');house(m,3,3,6,4,'R');house(m,23,3,6,4,'R');
+  rect(m,4,12,3,3,'A');rect(m,5,9,1,3,'p');rect(m,24,12,4,3,'W');
+  rect(m,15,17,2,7,'p');m[17][14]='L';m[17][17]='L';m[9][10]='L';m[9][21]='L';
+  MAPS.sect={n:['Yeşim Boşluk Sarayı · Dış Avlu','Jade Void Palace · Outer Court'],short:['Yeşim Boşluk Sarayı','Jade Void Palace'],wx:150,wy:70,m,base:'.',qi:1.5,
+   exits:[{x:15,y:23,to:'town',tx:15,ty:1},{x:16,y:23,to:'town',tx:16,ty:1}],
+   objs:[
+    {t:'npc',id:'usta',x:16,y:7,look:NL(0,'#eac39c','#e6e6f0',2,'#2a2030','#e8e8f0',1,0,'#3a6ab8',2)},
+    {t:'npc',id:'lin',x:14,y:11,look:NL(1,'#f6dcc0','#1c1a24',1,'#3a6ad0','#3a6ab8',0,1,'#e8e8f0',2)},
+    {t:'npc',id:'dan',x:6,y:7,look:NL(0,'#d4a074','#4a2c1a',2,'#2a2030','#b03a3a',2,0,'#2a2a36',0)},
+    {t:'npc',id:'mo',x:26,y:7,look:NL(0,'#eac39c','#e6e6f0',0,'#2a2030','#2a2a36',1,2,'#8a8a96',5)},
+    {t:'npc',id:'zhao',x:20,y:13,look:NL(0,'#f6dcc0','#1c1a24',3,'#c03a3a','#6a3a9a',1,0,'#d0a040',1)},
+    {t:'npc',id:'guard',x:14,y:20,look:NL(0,'#a8744c','#1c1a24',0,'#2a2030','#2e8a6a',2,2,'#2a2a36',1)},
+    {t:'npc',id:'mei',x:22,y:11,look:NL(1,'#f6dcc0','#4a2c1a',4,'#2f8a50','#d0a040',0,8,'#f0a0b8',0)},
+    {t:'sign',x:17,y:19,text:['Güney: Qingshi Kasabası.\n"Ortodoks ile şeytani, yöntemle değil; göğe ve vicdana aykırı davranıp davranmamakla ayrılır."','South: Qingshi Town.\n"Orthodox and demonic are told apart not by method, but by whether one defies heaven and conscience."']}]};
+  r=rng(23);m=grid(32,22,'.');scatter(m,'T',18,r,'.');scatter(m,'f',30,r,'.');border(m,'T');
+  house(m,5,5,7,5,'r');house(m,20,5,7,5,'r');house(m,4,15,6,4,'r');house(m,21,15,6,4,'r');
+  rect(m,15,0,2,13,'p');rect(m,1,11,31,2,'p');rect(m,8,10,1,1,'p');rect(m,23,10,1,1,'p');rect(m,27,2,3,2,'W');
+  rect(m,7,13,4,2,'.');rect(m,12,13,3,1,'.');rect(m,17,9,3,2,'.');
+  MAPS.town={n:['Qingshi Kasabası','Qingshi Town'],short:['Qingshi Kasabası','Qingshi Town'],wx:150,wy:190,m,base:'.',qi:1,
+   exits:[{x:15,y:0,to:'sect',tx:15,ty:22},{x:16,y:0,to:'sect',tx:16,ty:22},{x:31,y:11,to:'forest',tx:1,ty:13},{x:31,y:12,to:'forest',tx:1,ty:14}],
+   objs:[
+    {t:'npc',id:'qian',x:9,y:10,look:NL(0,'#eac39c','#1c1a24',2,'#2a2030','#d0a040',2,0,'#8a1a2a',5)},
+    {t:'npc',id:'hu',x:24,y:10,look:NL(0,'#a8744c','#4a2c1a',5,'#2a2030','#8a6a4a',2,2,'#2a2a36',4)},
+    {t:'npc',id:'falci',x:13,y:13,look:NL(0,'#d4a074','#e6e6f0',1,'#e6e6f0','#6a3a9a',0,6,'#2a2a36',2)},
+    {t:'npc',id:'su',x:18,y:10,look:NL(1,'#eac39c','#b03a2a',3,'#2f8a50','#2e8a6a',1,9,'#f4f0d8',1)},
+    {t:'npc',id:'nine',x:9,y:14,look:NL(1,'#eac39c','#e6e6f0',2,'#2a2030','#3a6ab8',1,0,'#8a6a4a',0)},
+    {t:'npc',id:'cocuk',x:19,y:13,look:NL(0,'#f6dcc0','#1c1a24',4,'#2a2030','#b03a3a',0,0,'#8a6a4a',1)},
+    {t:'sign',x:17,y:3,text:['Kuzey: Kunlun, Yeşim Boşluk Sarayı.\nDoğu: Ruh Ormanı.\nBüyük Xuan Hanedanı fermanı: Kültivatörler pazarda güç gösteremez.','North: Kunlun, Jade Void Palace.\nEast: Spirit Forest.\nBy decree of the Great Xuan Dynasty: cultivators shall not flaunt power in the market.']}]};
+  r=rng(37);m=grid(36,26,'.');scatter(m,'T',170,r,'.');scatter(m,'f',40,r,'.');border(m,'T');
+  rect(m,5,4,7,5,',');rect(m,20,16,8,5,',');rect(m,24,4,7,4,',');rect(m,8,17,6,5,',');
+  rect(m,16,1,2,24,'W');rect(m,16,13,2,2,'b');
+  rect(m,0,13,16,2,'p');rect(m,18,13,12,2,'p');rect(m,28,0,2,15,'p');rect(m,8,9,1,4,'p');rect(m,10,15,1,2,'p');rect(m,22,15,1,1,'p');rect(m,30,13,3,2,'.');
+  rect(m,30,15,1,6,'.');rect(m,30,20,6,1,'p');rect(m,32,19,2,1,'.');
+  MAPS.forest={n:['Ruh Ormanı','Spirit Forest'],short:['Ruh Ormanı','Spirit Forest'],wx:370,wy:190,m,base:'.',qi:1,enc:.14,table:['tilki','kurt','kurt','cin'],
+   exits:[{x:0,y:13,to:'town',tx:30,ty:11},{x:0,y:14,to:'town',tx:30,ty:12},{x:28,y:0,to:'pass',tx:14,ty:22},{x:29,y:0,to:'pass',tx:15,ty:22},{x:35,y:20,to:'cave',tx:11,ty:15}],
+   objs:[
+    ...[[6,5],[9,7],[10,5],[22,18],[25,17],[26,6],[9,19],[12,21],[30,5]].map(([x,y])=>({t:'herb',item:'ot',x,y})),
+    {t:'herb',item:'ginseng',x:26,y:19},{t:'herb',item:'ginseng',x:25,y:5},{t:'herb',item:'ginseng',x:6,y:7},
+    {t:'npc',id:'fox',x:11,y:6,spr:'fox'},
+    {t:'item',id:'kolye',item:'yesim',x:12,y:19},
+    {t:'chest',id:'c1',x:32,y:13,loot:['qihap',2,'st',25]},
+    {t:'sign',x:33,y:19,text:['Doğu: ???\nMağaranın ağzından kan kokusu geliyor. Taşa bir mühür kazınmış.','East: ???\nThe cave mouth reeks of blood. A seal is carved into the rock.']},
+    {t:'sign',x:27,y:3,text:['Kuzey: Kara Rüzgâr Geçidi.\nUYARI: Qi Arıtma 5. Katman altındakiler girmesin.','North: Black Wind Pass.\nWARNING: Not for those below Qi Refining Layer 5.']}]};
+  r=rng(51);m=grid(30,24,'d');scatter(m,'x',45,r,'d');scatter(m,'g',28,r,'d');scatter(m,'M',22,r,'d');border(m,'M');
+  rect(m,14,6,2,12,'d');rect(m,4,5,8,1,'d');rect(m,16,12,10,1,'d');rect(m,11,2,8,4,'K');rect(m,14,18,2,6,'p');rect(m,12,19,2,2,'d');
+  MAPS.pass={n:['Kara Rüzgâr Geçidi','Black Wind Pass'],short:['Kara Rüzgâr Geçidi','Black Wind Pass'],wx:370,wy:70,m,base:'d',qi:.8,enc:.09,table:['kemik','kemik','ceset','sinek'],dark:1,
+   exits:[{x:14,y:23,to:'forest',tx:28,ty:1},{x:15,y:23,to:'forest',tx:29,ty:1}],
+   objs:[
+    {t:'npc',id:'monk',x:12,y:20,look:NL(0,'#d4a074','#d4a074',5,'#2a2030','#d0a040',1,3,'#b03a3a',4)},
+    {t:'npc',id:'boss',x:15,y:3,look:ENEMIES.murid.look},
+    {t:'item',id:'mantar',item:'mantar',x:4,y:5},
+    {t:'chest',id:'c2',x:26,y:12,loot:['sifahap',2,'tilsim',2,'st',60]}]};
+  r=rng(77);m=grid(24,18,'d');scatter(m,'M',16,r,'d');scatter(m,'g',9,r,'d');border(m,'M');
+  rect(m,8,2,8,3,'K');rect(m,8,5,9,3,'d');rect(m,11,5,2,12,'d');rect(m,3,8,3,3,'Z');rect(m,6,9,5,1,'d');rect(m,17,8,4,3,'B');rect(m,13,10,3,3,'d');rect(m,11,16,2,2,'p');
+  MAPS.cave={n:['Kan Mağarası · Dış Salon','Blood Cave · Outer Hall'],short:['Kan Mağarası','Blood Cave'],wx:540,wy:260,m,base:'d',qi:1.5,dark:1,
+   exits:[{x:11,y:17,to:'forest',tx:34,ty:20},{x:12,y:17,to:'forest',tx:34,ty:20}],
+   objs:[
+    {t:'npc',id:'elci',x:12,y:3,look:NL(0,'#b8c4c8','#1c1a24',1,'#e02a3a','#2a2a36',1,7,'#8a1a2a',3)},
+    {t:'npc',id:'ye',x:9,y:7,look:NL(1,'#fbe8dc','#8a1a2a',7,'#c03a3a','#8a1a2a',0,5,'#2a2a36',2)},
+    {t:'npc',id:'gu',x:15,y:6,look:NL(0,'#b8c4c8','#2e8a6a',5,'#2f8a50','#1a4a3a',0,4,'#6a3a9a',0)},
+    {t:'npc',id:'xie',x:14,y:11,look:NL(0,'#d4a074','#8a8a96',0,'#2a2030','#8a1a2a',2,2,'#2a2a36',4)},
+    {t:'npc',id:'dguard',x:10,y:15,look:NL(0,'#a8744c','#1c1a24',6,'#c03a3a','#2a2a36',2,4,'#8a1a2a',1)}]};
+  for(const k in MAPS){const M=MAPS[k];M.objs.forEach(o=>{if(SOLID.includes(M.m[o.y][o.x]))M.m[o.y][o.x]=M.base});
+    const W=M.m[0].length,H=M.m.length,cn=document.createElement('canvas');cn.width=W;cn.height=H;const c=cn.getContext('2d');
+    for(let y=0;y<H;y++)for(let x=0;x<W;x++){c.fillStyle=MINI[M.m[y][x]];c.fillRect(x,y,1,1)}M.mini=cn}
+}
+const NAMES={usta:['Usta Xuanji','Master Xuanji'],lin:['Kıdemli Kız Kardeş Lin Yue','Senior Sister Lin Yue'],dan:['Simya Ustası Dan Chen','Alchemist Dan Chen'],mo:['İhtiyar Mo','Elder Mo'],
+ zhao:['Zhao Feng','Zhao Feng'],guard:['Kapı Muhafızı','Gate Guard'],mei:['Küçük Mei','Little Mei'],qian:['Tüccar Qian','Merchant Qian'],hu:['Demirci Hu','Blacksmith Hu'],falci:['Kör Falcı','Blind Diviner'],
+ su:['Gezgin Su Wan','Wanderer Su Wan'],nine:['Wang Nine','Granny Wang'],cocuk:['Köylü Çocuk','Village Boy'],fox:['Yaralı Tilki','Wounded Fox'],monk:['Keşiş Jingxin','Monk Jingxin'],boss:['Xue Sha','Xue Sha'],
+ elci:['Kan Elçisi Mo Luo','Blood Envoy Mo Luo'],ye:['Kıdemli Kardeş Ye Sha','Senior Sister Ye Sha'],gu:['Zehir Ustası Gu','Poison Master Gu'],xie:['Kan İhtiyarı Xie','Blood Elder Xie'],dguard:['Mağara Bekçisi','Cave Warden']};
+function objHidden(o){
+  if(o.until&&Date.now()<o.until)return true;
+  if(o.id==='kolye'&&!P.flags.kolyeQ)return true;
+  if(o.t==='chest'||o.t==='item')return!!P.flags['got_'+o.id];
+  if(o.id==='fox')return!!P.flags.fox;
+  if(o.id==='boss')return!!P.flags.boss;
+  return false}
+function objAt(x,y){return cur.objs.find(o=>o.x===x&&o.y===y&&!objHidden(o))}
+function walkable(x,y){const m=cur.m;if(y<0||x<0||y>=m.length||x>=m[0].length)return false;if(SOLID.includes(m[y][x]))return false;return!objAt(x,y)}
+
+/* ---------- Arayüz yardımcıları ---------- */
+function toast(t){if(!t)return;const d=document.createElement('div');d.textContent=t;$('#toast').appendChild(d);setTimeout(()=>d.remove(),2600);
+  while($('#toast').children.length>4)$('#toast').firstChild.remove()}
+function setBar(b,t,v,mx,label){b.style.width=clamp(v/mx*100,0,100)+'%';t.textContent=label+' '+Math.max(0,Math.round(v))+'/'+mx}
+function hud(){if(!P)return;const s=stats();P.hp=Math.min(P.hp,s.maxhp);P.qi=Math.min(P.qi,s.maxqi);
+  $('#hwho').textContent=P.name+' · '+realm(P.L);$('#hwhere').textContent=(cur?tx(cur.n):'')+' · ◆ '+P.st;
+  setBar($('#bhp'),$('#thp'),P.hp,s.maxhp,T('Can','HP'));setBar($('#bqi'),$('#tqi'),P.qi,s.maxqi,'Qi');setBar($('#bxp'),$('#txp'),P.xp,need(P.L),T('Gelişim','Cultivation'))}
+let dlgNext=null;
+const dlg=$('#dlg');
+function talk(who,text){return new Promise(res=>{$('#dwho').textContent=who||'';$('#dwho').hidden=!who;$('#dtxt').textContent=text;$('#dch').innerHTML='';
+  $('#dhint').hidden=false;dlg.hidden=false;dlgNext=()=>{dlgNext=null;res()}})}
+function ask(who,text,opts){return new Promise(res=>{$('#dwho').textContent=who||'';$('#dwho').hidden=!who;$('#dtxt').textContent=text;const ch=$('#dch');ch.innerHTML='';
+  $('#dhint').hidden=true;dlg.hidden=false;dlgNext=null;
+  opts.forEach((o,i)=>{const b=document.createElement('button');b.textContent=(i+1)+'. '+o;b.onclick=e=>{e.stopPropagation();ch.innerHTML='';res(i)};ch.appendChild(b)})})}
+dlg.addEventListener('click',()=>{if(dlgNext)dlgNext()});
+async function run(f){if(busy)return;busy=true;P.med=false;try{await f()}catch(e){console.error(e)}dlg.hidden=true;busy=false;hud();save()}
+function save(){if(!P)return;try{localStorage.setItem('dokuzdiyar_save',JSON.stringify(P))}catch(e){}}
+function loadSave(){try{const s=localStorage.getItem('dokuzdiyar_save');return s?JSON.parse(s):null}catch(e){return null}}
+
+/* ---------- Savaş ---------- */
+const bl=[];
+function blog(t){if(!t)return;bl.push(t);while(bl.length>4)bl.shift();$('#blog').textContent=bl.join('\n')}
+function bRefresh(E){const s=stats();
+  setBar($('#pbh'),$('#pth'),P.hp,s.maxhp,T('Can','HP'));setBar($('#pbq'),$('#ptq'),P.qi,s.maxqi,'Qi');
+  if(E){$('#ebh').style.width=clamp(E.hp/E.max*100,0,100)+'%';$('#eth').textContent=E.trib?(T('Kalan dalga ','Waves left ')+E.hp):(T('Can ','HP ')+Math.max(0,E.hp)+'/'+E.max)}}
+function bDraw(E){
+  const pc=$('#pc').getContext('2d');pc.clearRect(0,0,96,96);pc.save();pc.scale(5,5);drawChar(pc,1.6,2.6,lookOf(P.look),2,0);pc.restore();
+  const ec=$('#ec').getContext('2d');ec.clearRect(0,0,96,96);
+  if(E.look){ec.save();ec.scale(5,5);drawChar(ec,1.6,2.6,E.look,1,0);ec.restore()}else drawSpr(ec,SPR[E.spr],0,10,6)}
+function bButtons(list){return new Promise(res=>{const a=$('#bact');a.innerHTML='';list.forEach((o,i)=>{const b=document.createElement('button');
+  b.textContent=(i+1)+'. '+o.t;b.disabled=!!o.off;b.onclick=()=>{a.innerHTML='';res(o.v)};a.appendChild(b)})})}
+async function pickAction(E){
+  const back={t:T('Geri','Back'),v:null};
+  for(;;){
+    const main=E.trib?[{t:T('Savun (yarı hasar)','Guard (half damage)'),v:{t:'guard'}},{t:T('Kan Kalkanı (15 Qi, %70 azaltma)','Blood Ward (15 Qi, −70%)'),v:{t:'ward'},off:P.demon<5||P.qi<15},{t:T('Teknik','Technique'),v:'tech'},{t:T('Eşya','Item'),v:'item'}]
+      :[{t:T('Saldır','Attack'),v:{t:'atk'}},{t:T('Teknik','Technique'),v:'tech'},{t:T('Eşya','Item'),v:'item'},{t:T('Savun','Guard'),v:{t:'guard'}},{t:T('Kaç','Flee'),v:{t:'flee'},off:E.boss||E.duel}];
+    const v=await bButtons(main);
+    if(v==='tech'){const ts=techs().filter(t=>!E.trib||t.heal);
+      if(!ts.length){blog(E.trib?T('Gök gürültüsüne saldırı tekniği işlemez; yalnızca Qi Dolaşımı.','Attack arts are useless against thunder; only Qi Circulation works.'):T('Henüz teknik bilmiyorsun (2. Katman\'da öğrenilir).','You know no techniques yet (learned at Layer 2).'));continue}
+      const r=await bButtons([...ts.map(t=>({t:`${t.n} (${t.cost} Qi)`,v:{t:'tech',k:t},off:P.qi<t.cost})),back]);if(r)return r}
+    else if(v==='item'){const ids=['sifahap','qihap','tilsim'].filter(i=>has(i)&&!(E.trib&&i==='tilsim'));
+      if(!ids.length){blog(T('Kullanılabilir eşyan yok.','You have no usable items.'));continue}
+      const r=await bButtons([...ids.map(i=>({t:`${tx(ITEMS[i].n)} ×${P.inv[i]}`,v:{t:'item',id:i}})),back]);if(r)return r}
+    else return v}
+}
+function useItem(id,E){take(id);const s=stats();
+  if(id==='sifahap'){P.hp=Math.min(s.maxhp,P.hp+60);return T('Küçük Dönüş Hapı: +60 Can.','Lesser Restoration Pill: +60 HP.')}
+  if(id==='qihap'){P.qi=Math.min(s.maxqi,P.qi+40);return T('Qi Toplama Hapı: +40 Qi.','Qi Gathering Pill: +40 Qi.')}
+  if(id==='tilsim'&&E){const d=Math.round(40*elMult('fire',E.el));E.hp-=d;return T(`Ateş Topu Tılsımı patladı: ${d} hasar!`,`The Fireball Talisman bursts: ${d} damage!`)}
+  return''}
+async function battle(key,over){
+  const d=Object.assign({},ENEMIES[key]||{},over||{});const E=Object.assign({},d,{max:d.hp,n:tx(d.n)});
+  bl.length=0;$('#battle').hidden=false;$('#pn').textContent=P.name;$('#en').textContent=E.n;
+  $('#eel').innerHTML='';const tag=document.createElement('span');tag.textContent='Element: '+tx(EL[E.el].n);tag.style.color=EL[E.el].c;$('#eel').appendChild(tag);
+  bDraw(E);bRefresh(E);blog(T(E.n+' karşına çıktı!',E.n+' appears!'));
+  let res=null,turn=0;
+  while(!res){
+    const a=await pickAction(E);const s=stats();let guard=false;turn++;
+    if(a.t==='atk'){const crit=Math.random()<(P.origin==='shu'?.25:.1);const dm=Math.max(1,Math.round(s.atk*(.9+Math.random()*.2)*(crit?1.5:1)-E.def*.5));E.hp-=dm;
+      blog(T(`Kılıcınla saldırdın: ${dm} hasar${crit?' (kritik!)':''}.`,`You strike with your sword: ${dm} damage${crit?' (critical!)':''}.`))}
+    else if(a.t==='tech'){const t=a.k;P.qi-=t.cost;
+      if(t.heal){const h=Math.round(s.maxhp*t.heal);P.hp=Math.min(s.maxhp,P.hp+h);blog(T(`Qi meridyenlerinde bir tur attı: +${h} Can.`,`Qi completes a circuit through your meridians: +${h} HP.`))}
+      else{const mu=elMult(t.el,E.el);const dm=Math.max(1,Math.round(s.atk*t.pow*(.9+Math.random()*.2)*mu-E.def*.5));E.hp-=dm;
+        let ex=mu>1?T(' Element üstünlüğü!',' Elemental advantage!'):mu<1?T(' Element dezavantajı…',' Elemental disadvantage…'):'';
+        if(t.ls){const h=Math.round(dm*t.ls);P.hp=Math.min(s.maxhp,P.hp+h);ex+=T(` ${h} Can emdin.`,` You drain ${h} HP.`)}
+        blog(T(`${t.n}: ${dm} hasar.`,`${t.n}: ${dm} damage.`)+ex)}}
+    else if(a.t==='item')blog(useItem(a.id,E));
+    else if(a.t==='guard'){guard=true;blog(T('Savunma duruşu aldın.','You take a guarding stance.'))}
+    else if(a.t==='flee'){if(Math.random()<(P.origin==='rogue'?.95:.6)){res='flee';blog(T('Kaçmayı başardın.','You got away.'));break}blog(T('Kaçamadın!','You failed to flee!'))}
+    bRefresh(E);
+    if(E.hp<=0){res='win';break}
+    await sleep(380);
+    const em=E.boss&&turn%3===0?1.7:1;
+    let mu=elMult(E.el,P.el);if(P.root==='bes')mu=Math.min(1,mu);
+    const dm=Math.max(1,Math.round(E.atk*(.85+Math.random()*.3)*mu*em*(guard?.5:1)-s.def*.5));
+    P.hp-=dm;blog(em>1?T(`${E.n} Kan Gölgesi Pençesi'ni savurdu: ${dm} hasar!`,`${E.n} unleashes the Blood Shadow Claw: ${dm} damage!`):T(`${E.n} saldırdı: ${dm} hasar.`,`${E.n} attacks: ${dm} damage.`));
+    if(E.boss&&turn%3===2)blog(T('Xue Sha\'nın çevresinde kan sisi toplanıyor… (savunmak akıllıca olur)','A blood mist gathers around Xue Sha… (guarding would be wise)'));
+    bRefresh(E);
+    if(P.hp<=0){P.hp=0;res='lose'}
+  }
+  bRefresh(E);await sleep(500);
+  const cont=[{t:T('Devam','Continue'),v:1}];
+  if(res==='win'){const st=rnd(E.st[0],E.st[1]);blog(T(`${E.n} yenildi! +${E.xp} gelişim${st?`, +${st} ruh taşı`:''}.`,`${E.n} is defeated! +${E.xp} cultivation${st?`, +${st} spirit stones`:''}.`));
+    await bButtons(cont);$('#battle').hidden=true;
+    if(st)P.st+=st;(E.drop||[]).forEach(([id,ch])=>{if(Math.random()<ch)give(id)});gainXp(E.xp);
+    if(key==='kurt'&&P.flags.kurtQ&&P.kurt<3){P.kurt++;toast(T(`Av emri: ${P.kurt}/3 kurt`,`Bounty: ${P.kurt}/3 wolves`))}}
+  else{if(res==='lose')blog(T('Gözlerin karardı…','Everything goes dark…'));await bButtons(cont);$('#battle').hidden=true}
+  hud();return res}
+async function defeat(){
+  const lost=Math.floor(P.st*.2);P.st-=lost;P.hp=Math.round(stats().maxhp*.5);
+  if(isDemon()){enterMap('cave',12,8);await talk(tx(NAMES.ye),T(`Leşini kurtlara bırakmadım; bana borçlusun. Cebinden ${lost} ruh taşı aldım, hizmet bedeli.`,`I didn't leave your carcass to the wolves; you owe me. I took ${lost} spirit stones from your pouch as my fee.`))}
+  else if(P.main<1&&P.origin==='rogue'){enterMap('town',16,6);await talk('',T(`Kasabada uyandın. Biri seni yol kenarından sürüklemiş; ${lost} ruh taşın eksik.`,`You wake in town. Someone dragged you off the road; ${lost} spirit stones are missing.`))}
+  else{enterMap('sect',15,11);await talk(tx(NAMES.lin),T(`Seni baygın buldum, sırtımda taşıdım. Yolda ${lost} ruh taşın dökülmüş. Gelişim yolunda ölmemek de bir hünerdir; önce dinlen.`,`I found you unconscious and carried you back. ${lost} spirit stones spilled on the way. Not dying is also a skill on this road; rest first.`))}}
+async function encounter(){
+  let tb=cur.table.slice();if(P.flags.kurtQ&&P.kurt<3&&cur===MAPS.forest)tb.push('kurt','kurt');
+  const r=await battle(pick(tb));if(r==='lose')await defeat()}
+
+/* ---------- Atılımlar ---------- */
+async function foundation(){
+  await talk('',T('Dantian\'ındaki Qi kurşun ve cıva gibi ağırlaştı. Sıvıya dönüşmek istiyor. Temel Kurma eşiğindesin.','The Qi in your dantian has grown heavy as lead and mercury. It wants to turn liquid. You stand at the threshold of Foundation Establishment.'));
+  if(await ask('',T('Atılımı şimdi denemek istiyor musun?','Attempt the breakthrough now?'),[T('Evet, Dao Temeli\'ni dök','Yes, cast the Dao Foundation'),T('Henüz değil','Not yet')]))return;
+  let pill=false,sac=false;
+  if(has('temelhap')&&!P.flags.pillUsed){if(await ask('',T('Temel Kurma Hapı\'n var. Ömürde yalnızca bir tanesi etki eder.','You have a Foundation Pill. Only one works in a lifetime.'),[T('Hapı yut (+%30)','Swallow the pill (+30%)'),T('Hapsız dene','Try without it')])===0){pill=true;take('temelhap');P.flags.pillUsed=1}}
+  const m=await ask('',T('Temeli hangi yöntemle dökeceksin?','By what method will you cast your foundation?'),[
+    T('Ortodoks yöntem: sabırla, kendi Qi\'nle','Orthodox method: patiently, with your own Qi'),
+    T('Şeytani yöntem: 3 Canavar Çekirdeği\'nin kanıyla zorla (+%25, şeytani yol +2)','Demonic method: force it with the blood of 3 Beast Cores (+25%, demonic path +2)')+(has('cekirdek',3)?'':T(' — çekirdeğin yetmiyor',' — not enough cores'))]);
+  if(m===1&&has('cekirdek',3)){take('cekirdek',3);sac=true;addDemon(2);await talk('',T('Çekirdekleri avucunda ezdin. Yabancı kan meridyenlerine doldu; yakıyor ama itiyor.','You crush the cores in your palm. Foreign blood floods your meridians; it burns, but it pushes.'))}
+  await talk(T('Kalp İblisi','Heart Demon'),T('Karanlığın içinden kendi sesinle biri konuşuyor:\n"Söyle bana… neden gelişiyorsun?"','From the dark, someone speaks in your own voice:\n"Tell me… why do you cultivate?"'));
+  const a=await ask(T('Kalp İblisi','Heart Demon'),T('Cevabın nedir?','Your answer?'),[
+    T('Uzun yaşamak ve kendi yolumu bulmak için.','To live long and find my own path.'),T('Ustamın mirasını sürdürmek için.','To carry on my master\'s legacy.'),
+    T('Sıradan insanlara huzur getirmek için.','To bring peace to ordinary people.'),T('Dünyaya ihanet etmem gerekse bile, güç için! (şeytani yol +2)','For power, even if I must betray the world! (demonic path +2)')]);
+  let ch=.45+(pill?.3:0)+(sac?.25:0)+(P.karma>0?.1:0)+(P.root==='gok'?.1:0);
+  if(a===3){const deep=P.demon>=5;ch+=deep?.1:-.2;addDemon(2);
+    await talk(T('Kalp İblisi','Heart Demon'),deep?T('"Sonunda dürüstsün. Seninle savaşmayacağım; seninle yürüyeceğim."','"Honest at last. I will not fight you; I will walk with you."'):T('"Güzel… ama kalbin bu söze henüz inanmıyor. Çelişki, çatlaktır."','"Good… but your heart does not yet believe those words. Contradiction is a crack."'))}
+  else{if(P.demon>=6)ch-=.1;if(a===2)P.karma+=1;
+    await talk('',P.demon>=6?T('Sözlerin temiz ama ellerin kan kokuyor. İçindeki gölge alayla gülüyor, zor geri çekiliyor.','Your words are clean but your hands smell of blood. The shadow within laughs, and retreats grudgingly.'):T('Sorunun tek doğru cevabı yok; ama cevapsız kalan bu kapıdan geçemez. İçindeki gölge geri çekiliyor.','There is no single right answer, but those without one cannot pass this gate. The shadow within withdraws.'))}
+  if(Math.random()<ch){
+    const q=sac||P.demon>=6?T('Kan Temeli (şeytani)','Blood Foundation (demonic)'):P.root==='gok'?T('Üstün (Yeşim Temel)','Superior (Jade Foundation)'):P.root==='cift'||pill?T('Orta (Gerçek Temel)','Middle (True Foundation)'):T('Düşük (Karışık Temel)','Low (Mixed Foundation)');
+    P.L=11;P.xp=0;P.capMsg=0;P.flags.temel=q;heal();
+    await talk('',T('Qi sıvılaştı; dantian\'ında bir ruh gölü doğdu. Dao Temeli döküldü!\n\nTemel kalitesi: ','Qi turns liquid; a spirit lake is born in your dantian. Your Dao Foundation is cast!\n\nFoundation quality: ')+q+T('\nÖmrün iki yüz yılı aştı. Yeni teknik: Beş Yıldırım Yöntemi.','\nYour lifespan now exceeds two hundred years. New technique: Five Thunders Method.'));
+    toast(T('Atılım! ','Breakthrough! ')+realm(11))}
+  else{P.xp=Math.floor(need(10)*.5);P.hp=1;P.capMsg=0;
+    await talk('',T('Qi meridyenlerinde ters döndü! Atılım başarısız. Gelişiminin yarısı dağıldı, bedenin yaralı.\n\n(Tekrar deneyebilirsin.)','Qi reverses in your meridians! The breakthrough fails. Half your cultivation scatters and your body is wounded.\n\n(You may try again.)'))}}
+async function tribulation(){
+  await talk('',T('Ruh sıvın yoğunlaşıp çekirdeğe dönmek üzere. Gökyüzü kararıyor; Üç-Dokuz Küçük Gök Felaketi seni sınayacak: yirmi yedi mavi yıldırım, dokuz dalga.','Your spirit liquid is about to condense into a core. The sky darkens; the Lesser Three-Nine Tribulation will test you: twenty-seven blue bolts in nine waves.'));
+  if(await ask('',T('Felaketi şimdi karşılamak istiyor musun? (Hap stoğunu kontrol et.)','Face the tribulation now? (Check your pills.)'),[T('Evet, göğe meydan oku','Yes, defy the heavens'),T('Henüz değil','Not yet')]))return;
+  const E={n:T('Üç-Dokuz Küçük Gök Felaketi','Lesser Three-Nine Tribulation'),el:'thunder',hp:9,max:9,trib:1,spr:'cloud'};
+  bl.length=0;$('#battle').hidden=false;$('#pn').textContent=P.name;$('#en').textContent=E.n;$('#eel').textContent=T('Çekirdeğin saflığını sınar','Tests the purity of your core');
+  bDraw(E);bRefresh(E);
+  const km=(P.karma>=5?.8:1)*(1+Math.min(.5,P.demon*.04));
+  blog(P.demon>=5?T('Gök, üzerindeki kan kokusunu aldı: yıldırımlar şiddetlendi!','Heaven smells the blood on you: the lightning grows fiercer!'):P.karma>=5?T('Erdemin göğe ulaştı: yıldırımlar hafifledi.','Your virtue reaches heaven: the lightning eases.'):T('Fırtına bulutları toplanıyor…','Storm clouds gather…'));
+  for(let i=1;i<=9&&P.hp>0;i++){
+    const a=await pickAction(E);const s=stats();let g=1;
+    if(a.t==='guard')g=.5;else if(a.t==='ward'){P.qi-=15;g=.3}else if(a.t==='item')blog(useItem(a.id));
+    else if(a.t==='tech'){P.qi-=a.k.cost;const h=Math.round(s.maxhp*a.k.heal);P.hp=Math.min(s.maxhp,P.hp+h);blog(T(`Qi Dolaşımı: +${h} Can.`,`Qi Circulation: +${h} HP.`))}
+    await sleep(350);
+    const dm=Math.round((26+i*7)*km*(P.el==='thunder'?.8:1)*g);P.hp-=dm;E.hp--;
+    blog(T(`${i}. dalga: üç mavi yıldırım indi! ${dm} hasar${g<1?' (savundun)':''}.`,`Wave ${i}: three blue bolts strike! ${dm} damage${g<1?' (guarded)':''}.`));bRefresh(E)}
+  const ok=P.hp>0;if(!ok)P.hp=0;bRefresh(E);await sleep(500);
+  blog(ok?T('Bulutlar dağılıyor…','The clouds part…'):T('Çekirdek çatladı!','The core cracks!'));await bButtons([{t:T('Devam','Continue'),v:1}]);$('#battle').hidden=true;
+  if(ok){P.L=15;P.xp=0;heal();
+    await talk('',T('Sıvı Qi döne döne katılaştı: "Ejderha ile kaplan birleşti, kurşun ile cıva çekirdek oldu."\n\nALTIN ÇEKİRDEK\'e ulaştın. Ömrün beş yüz yıl.','The liquid Qi spins and hardens: "Dragon and tiger unite; lead and mercury become a core."\n\nYou have reached GOLDEN CORE. Your lifespan is five hundred years.'));
+    toast(T('Atılım! Altın Çekirdek','Breakthrough! Golden Core'))}
+  else{P.hp=1;P.xp=Math.floor(need(14)*.5);P.capMsg=0;
+    await talk('',T('Yıldırım seni yere serdi. Çekirdek dağıldı ama Dao Temeli\'n sağlam kaldı. Gelişiminin yarısı gitti; iyileş ve yeniden dene.','The lightning strikes you down. The core scatters, but your foundation holds. Half your cultivation is gone; recover and try again.'))}}
+
+/* ---------- NPC senaryoları ---------- */
+const MYST=[
+ ['Ölümsüzlük yolu yirmi bin yıldır daralıyor. Yükselenler nereye gitti, neden tek haber gelmedi?','The road to immortality has narrowed for twenty thousand years. Where did the ascended go, and why has no word ever returned?'],
+ ['Pangu Sancağı neden kırık? Öbür yarısı hangi âleme düştü?','Why is the Pangu Banner broken? Into which realm did the other half fall?'],
+ ['Buzhou Dağı\'nın altında biri mühürlü. Mühürde şöyle yazar: "Adı anılmaz, düşünülmez, bakılmaz."','Someone is sealed beneath Mount Buzhou. The seal reads: "Not to be named, not to be thought of, not to be looked upon."'],
+ ['Yeşim Boşluk Sarayı\'nda on iki salon vardır derler. Peki on bin yıldır kilitli duran on üçüncü salon?','They say the Jade Void Palace has twelve halls. What of the thirteenth, locked for ten thousand years?'],
+ ['Üç bin yılda bir olgunlaşan ölümsüzlük şeftalisi, son dokuz bin yılda yalnızca iki kez olgunlaştı.','The peaches of immortality ripen once every three thousand years, yet in the last nine thousand they have ripened only twice.'],
+ ['Öte dünyanın onuncu sarayındaki Çarkı Çeviren Kral bin yıldır görünmedi. Altı yol hâlâ dönüyor mu?','The Wheel-Turning King of the tenth court has not been seen for a thousand years. Do the six paths still turn?'],
+ ['Kadim Wu kabilesi bir gecede yok oldu. Kanları insanlar arasına dağıldı: felaket mi, plan mı?','The ancient Wu tribe vanished in a single night. Their blood scattered among mankind: disaster, or design?'],
+ ['Her büyük çağ felaketinde ermişler saraylarına kapanır. Neyi hesaplıyorlar?','At every great calamity, the sages shut themselves in their palaces. What are they calculating?']];
+const RECIPES=[{out:'qihap',need:{ot:2}},{out:'sifahap',need:{ginseng:1,ot:1}},{out:'temelhap',need:{mantar:1,cekirdek:2,ot:3}}];
+async function alchemy(N){
+  const ch=P.origin==='danxia'?1:(P.el==='fire'||P.el==='wood')?.9:.75;
+  for(;;){
+    const i=await ask(N,T(`Kazan sıcak. Ne arıtacaksın? (Başarı şansı %${ch*100})`,`The cauldron is hot. What will you refine? (Success ${ch*100}%)`),
+      [...RECIPES.map(r=>tx(ITEMS[r.out].n)+' ← '+Object.entries(r.need).map(([k,v])=>v+' '+tx(ITEMS[k].n)).join(', ')),T('Ayrıl','Leave')]);
+    if(i===RECIPES.length)return;const r=RECIPES[i];
+    if(!Object.entries(r.need).every(([k,v])=>has(k,v))){await talk(N,T('Malzemen eksik.','You lack the ingredients.'));continue}
+    Object.entries(r.need).forEach(([k,v])=>take(k,v));
+    if(Math.random()<ch){give(r.out);await talk(N,T('Kapak açıldı, hap kokusu yayıldı. Başarılı!','The lid lifts and the scent of medicine spreads. Success!'))}
+    else await talk(N,T('Kazan öksürdü, simsiyah bir topak çıktı. Atık hap.','The cauldron coughs up a pitch-black lump. A waste pill.'))}}
+async function mystery(N){await talk(N,tx(pick(MYST)))}
+async function master(d){
+  const N=tx(NAMES[d?'elci':'usta']),eln=tx(EL[P.el].n),rtn=tx(ROOTS[P.root].n);
+  switch(P.main){
+   case 0:
+    if(d){
+      await talk(N,T(`Yeni kan… ${eln}, ${rtn}. Burada zayıflar adak olur, güçlüler mürit. Hangisi olacağını sen seçeceksin, ${P.name}.`,`Fresh blood… ${eln}, ${rtn}. Here the weak become offerings and the strong become disciples. You will choose which, ${P.name}.`));
+      await talk(N,T('Ortodokslar bize şeytan der. Oysa fark basit: onlar göğe yalvarır, biz gökten alırız. Bedelini de öderiz: yıldırım bize daha sert vurur.','The orthodox call us demons. The difference is simple: they beg heaven, we take from it. And we pay for it: the lightning strikes us harder.'));
+      await talk(N,T('"Kan Tanrısı Sutrası"nın ilk sayfasını al. Salonun batısındaki Kan Dizilimi\'ne otur (M), Qi Arıtma 2. Katman\'a ulaş. Canavar çekirdeği bulursan çiğ yut; en hızlı yol odur.','Take the first page of the "Blood God Sutra". Sit on the Blood Array west of the hall (M) and reach Qi Refining Layer 2. If you find beast cores, swallow them raw; that is the fastest road.'))}
+    else{
+      await talk(N,P.origin==='rogue'?T(`Dağa kendi ayağıyla çıkan bir gezgin… ${eln}, ${rtn}. Kararlılığın kökünden değerli. Dış kapıya kabul edildin, ${P.name}.`,`A wanderer who climbed the mountain on their own feet… ${eln}, ${rtn}. Your resolve is worth more than your root. You are accepted into the outer court, ${P.name}.`)
+        :P.origin==='shu'?T(`Shu Dağı'ndan gelen konuk mürit sensin, ${P.name}. ${eln}, ${rtn}… Kılıcın keskin, şimdi kalbini de bileyelim.`,`So you are the guest disciple from Shu Mountain, ${P.name}. ${eln}, ${rtn}… Your sword is sharp; now let us hone your heart.`)
+        :P.origin==='danxia'?T(`Dan Xia Vadisi'nin çırağı, ${P.name}. ${eln}, ${rtn}… Hap yapmayı bilen çoktur, hapa muhtaç olmamayı bilen az.`,`The apprentice from Danxia Valley, ${P.name}. ${eln}, ${rtn}… Many can make pills; few learn not to need them.`)
+        :T(`Demek ölçüm taşını parlatan çocuk sensin, ${P.name}. ${eln}, ${rtn}…`,`So you are the child who lit the testing stone, ${P.name}. ${eln}, ${rtn}…`));
+      await talk(N,T('Dinle. Dao bir\'i doğurur, bir ikiyi, iki üçü, üç on bin şeyi. İnsan gökle yerin arasında durur; bu yüzden gelişebilir, ölümsüz olabilir.','Listen. The Dao gives birth to one, one to two, two to three, three to the ten thousand things. Man stands between heaven and earth; that is why he can cultivate and become immortal.'));
+      await talk(N,T('Yol dört dayanak ister: yöntem, yoldaş, servet ve mekân. Sana "Yeşim Saflık Yöntemi"nin ilk bölümünü aktarıyorum.','The road needs four supports: method, companions, wealth and place. I pass to you the first chapter of the "Jade Purity Method".'));
+      await talk(N,T('Avlunun batısındaki Ruh Toplama Dizilimi\'ne otur (M tuşu), Qi\'yi bedenine çek. Qi Arıtma 2. Katman\'a ulaşınca yanıma dön.','Sit on the Spirit Gathering Array in the west of the court (M key) and draw Qi into your body. Return when you reach Qi Refining Layer 2.'))}
+    P.main=1;break;
+   case 1:
+    if(P.L>=2){await talk(N,d?T('Hâlâ yaşıyorsun. İyi. Al şu taşları.','Still alive. Good. Take these stones.'):T('Göksel kapın açılmış, Qi küçük devri tamamlıyor. Güzel. Al, bu ruh taşları ilk harçlığın.','Your heavenly gate is open and Qi completes the small circuit. Good. Take these spirit stones as your first allowance.'));stones(20);
+      await talk(N,d?T('Zehir Ustası Gu üç Ruh Toplama Otu istiyor. Ruh Ormanı mağaranın hemen batısında. Kasabaya inersen kimliğini gizle.','Poison Master Gu wants three Spirit Gathering Grass. The Spirit Forest lies just west of the cave. If you go down to town, hide what you are.')
+        :T('Şimdi Simya Ustası Dan Chen\'e git. Onun için Ruh Ormanı\'ndan üç Ruh Toplama Otu topla. Orman, Qingshi Kasabası\'nın doğusunda.','Now go to Alchemist Dan Chen. Gather three Spirit Gathering Grass for him in the Spirit Forest, east of Qingshi Town.'));P.main=2}
+    else await talk(N,d?T('2. Katman\'a ulaşmadan karşıma çıkma. Kan Dizilimi\'nde otur.','Do not come before me until Layer 2. Sit on the Blood Array.'):T('Henüz 2. Katman\'da değilsin. Dizilimin üzerinde meditasyon yap; orada Qi daha yoğundur.','You are not yet at Layer 2. Meditate on the array; Qi is denser there.'));
+    break;
+   case 2:await talk(N,d?T('Gu otlarını bekliyor. Bekletilmeyi sevmez.','Gu is waiting for his herbs. He dislikes waiting.'):T('Dan Chen otlarını bekliyor. Ruh Ormanı kasabanın doğusunda.','Dan Chen is waiting for his herbs. The Spirit Forest is east of town.'));break;
+   case 3:await talk(N,d?T('Kan İhtiyarı Xie\'ye uğra. Tarikata kan getiren, tarikattan güç alır.','See Blood Elder Xie. Those who bring blood to the cult take strength from it.'):T('Görev Salonu\'ndaki İhtiyar Mo\'ya uğra. Tarikata katkı, gelişimin yarısıdır.','See Elder Mo at the Mission Hall. Contribution to the sect is half of cultivation.'));break;
+   case 4:
+    await talk(N,d?T('Xue Sha adında bir mürit, kuzeydeki Kara Rüzgâr Geçidi\'nde Ata\'ya ayrılan kanı kendisi içiyor. Hainin sonu bellidir.','A disciple named Xue Sha, up in the Black Wind Pass, drinks the blood meant for the Ancestor. A traitor\'s end is certain.')
+      :T('Kötü haberler var. Kuzeydeki Kara Rüzgâr Geçidi\'nde Kan Tanrısı Tarikatı\'ndan bir mürit köylülerin kanını topluyor. Kendi kanını arıtan ortodokstur; başkasının kanını çalan şeytani.','Ill news. In the Black Wind Pass to the north, a disciple of the Blood God Cult is harvesting villagers\' blood. He who refines his own blood is orthodox; he who steals another\'s is demonic.'));
+    if(P.L<5){await talk(N,T('Ama sen henüz hazır değilsin. Qi Arıtma 5. Katman\'a ulaş, sonra gel.','But you are not ready. Reach Qi Refining Layer 5, then come back.'));break}
+    await talk(N,d?T('Kellesini getir. Kan yolu su elementine yakındır; toprak onu bastırır. Şunları al, israf etme.','Bring me his head. The blood path is close to water; earth suppresses it. Take these and do not waste them.')
+      :T('Bu senin sınavın olacak. Xue Sha\'yı durdur. Kan yolu su elementine yakındır; toprak onu bastırır, ateş ondan zarar görür. Şu tılsımları al.','This will be your trial. Stop Xue Sha. The blood path is close to water; earth suppresses it and fire suffers against it. Take these talismans.'));
+    give('tilsim',2);give('sifahap',2);P.main=5;break;
+   case 5:
+    if(P.flags.boss){
+      await talk(N,d?(P.flags.boss==='ally'?T('Xue Sha bana senden söz etti. Ortodoks postunu sıyırıp gelmişsin. Sunak meselesi kapandı.','Xue Sha told me of you. You shed your orthodox skin and came. The matter of the altar is closed.'):T('Hainin kanı sonunda Ata\'ya aktı. İşe yararsın.','The traitor\'s blood has reached the Ancestor at last. You are useful.'))
+        :T('Kan kokusu üzerine sinmiş ama gözlerin berrak. İyi iş çıkardın. Bir kötülüğü durdurmak erdemdir; erdem, felaket gününde seni korur.','The smell of blood clings to you, but your eyes are clear. Well done. To stop an evil is virtue, and virtue shields you on the day of tribulation.'));
+      await talk(N,T('Bu, Temel Kurma Hapı. Ömürde yalnızca bir tanesi işe yarar. 10. Katman\'da darboğaza varınca kullan.','This is a Foundation Pill. Only one works in a lifetime. Use it when you hit the bottleneck at Layer 10.'));
+      give('temelhap');stones(100);P.main=6}
+    else await talk(N,T('Xue Sha, Kara Rüzgâr Geçidi\'nin kuzeyindeki kan sunağında. Geçit, Ruh Ormanı\'nın kuzey yolundan.','Xue Sha is at the blood altar in the north of the Black Wind Pass. The pass lies up the forest\'s north road.'));
+    break;
+   case 6:
+    if(P.L>=11){await talk(N,d?T(`${P.flags.temel||''}… Artık iç mağaraya girebilirsin. Ata adını duyacak.`,`${P.flags.temel||''}… You may now enter the inner cave. The Ancestor will hear your name.`):T(`Dao Temeli… ${P.flags.temel||''}. Bugünden sonra iç kapı müridisin; beyaz yeşim levhanı al.`,`A Dao Foundation… ${P.flags.temel||''}. From today you are an inner disciple; take your white jade token.`));
+      await talk(N,d?T('Önünde Altın Çekirdek var. Gök bizi sevmez: yirmi yedi yıldırım sana daha ağır inecek. Kan Kalkanı\'nı kullan, hap biriktir.','Golden Core lies ahead. Heaven does not love us: the twenty-seven bolts will fall heavier on you. Use the Blood Ward and stock up on pills.')
+        :T('Önünde Altın Çekirdek var. Temel Kurma\'nın zirvesinde gök seni yirmi yedi yıldırımla sınar. Felaketten önce borçlarını öde, hap biriktir, kalbini temiz tut.','Golden Core lies ahead. At the peak of Foundation, heaven tests you with twenty-seven bolts. Before the tribulation, settle your debts, stock pills and keep your heart clean.'));stones(150);P.main=7}
+    else await talk(N,T('Qi Arıtma 10. Katman\'ın sonuna varınca meditasyona otur; darboğaz kendini gösterir. Kalp iblisi sana bir soru soracak: neden gelişiyorsun?','When you reach the end of Layer 10, sit in meditation; the bottleneck will show itself. The heart demon will ask you one question: why do you cultivate?'));
+    break;
+   case 7:
+    if(P.L>=15){
+      if(d){await talk(N,T('Altın Çekirdek… Kan Nehri Atası gözünü açtı ve adını sordu.','Golden Core… The Blood River Ancestor opened one eye and asked your name.'));
+        await talk(N,T('Güney Göksel Kapı dördüncü kez göründü. Ortodokslar kapıdan geçmeyi düşlüyor; Ata kapıyı sökmeyi. Büyük çağ geliyor ve sen artık bir piyon değilsin.','The South Heavenly Gate has appeared a fourth time. The orthodox dream of passing through it; the Ancestor dreams of tearing it off. The great age is coming, and you are no longer a pawn.'))}
+      else{await talk(N,T('Altın Çekirdek… Bu yaşta. Ruh gelgitinin çocuğusun sen.','Golden Core… at your age. You are a child of the spirit tide.'));
+        await talk(N,T('Dün gece Güney Göksel Kapı\'nın silueti Kunlun\'un üzerinde dördüncü kez göründü. Falcılar aynı kehaneti söylüyor: "Gök devrilecek, yer çevrilecek."','Last night the South Heavenly Gate appeared above Kunlun a fourth time. The diviners all speak the same prophecy: "Heaven will topple and earth will turn."'));
+        await talk(N,T('Büyük çağ geliyor ve ölümsüzlük yolu yeniden açılıyor. Bugünlük dinlen. İyi yürüdün, müridim.','The great age is coming and the road to immortality opens again. Rest for today. You walked well, my disciple.'))}
+      await talk('',T('— BİRİNCİ CİLDİN SONU —\n\nDokuz Diyar\'da dolaşmaya, avlanmaya ve gelişmeye devam edebilirsin.','— END OF VOLUME ONE —\n\nYou may keep roaming, hunting and cultivating in the Nine Realms.'));P.main=8}
+    else await talk(N,T('Temel Kurma\'nın Zirve Evresi\'nin sonuna var, sonra meditasyona otur. Felaket sırasında savunmayı ve Qi Dolaşımı\'nı unutma.','Reach the end of the Peak Stage of Foundation, then meditate. During the tribulation, remember to guard and to circulate your Qi.'));
+    break;
+   default:await mystery(N);}
+  if(!d&&P.demon>=5&&!P.flags.warn){P.flags.warn=1;await talk(N,T('…Bir şey daha. Qi\'nde bir kan gölgesi görüyorum. O yol hızlıdır ama geri dönüşü yoktur; gök de unutmaz. Seçim senin.','…One more thing. I see a blood shadow in your Qi. That road is fast, but it has no way back, and heaven does not forget. The choice is yours.'))}
+}
+async function helper(d){const N=tx(NAMES[d?'ye':'lin']),fl=d?'giftD':'lin';
+  if(!P.flags[fl]){P.flags[fl]=1;
+    if(d){await talk(N,T('Yeni et mi? Ben Ye Sha. Burada kimseye güvenme; bana da. Ama borcumu öderim.','New meat? I am Ye Sha. Trust no one here, me included. But I pay my debts.'));
+      await talk(N,T('Al şunları. Karşılığında bir gün senden bir şey isteyeceğim. Yaralanırsan gel; ölü mürit işe yaramaz.','Take these. Someday I will ask something of you in return. Come to me when wounded; a dead disciple is useless.'))}
+    else{await talk(N,T(`Yeni gelen sen misin? Ben Lin Yue, dış kapının kıdemlisiyim, ${P.name}.`,`Are you the newcomer? I am Lin Yue, senior of the outer court, ${P.name}.`));
+      await talk(N,T('Burada kimseye gerçek ömrünü sorma, kimsenin saklama kesesine bakma, meditasyondaki birini bölme. Al bunları, ilk seferinde lazım olur. Yaralanırsan yanıma gel.','Here, never ask anyone their true age, never peek into a storage pouch, never interrupt someone meditating. Take these for your first outing. Come to me if you are hurt.'))}
+    give('sifahap',2);give('tilsim',1);return}
+  const s=stats();
+  if(P.hp<s.maxhp||P.qi<s.maxqi){heal();await talk(N,d?T('Kan havuzuna gir… Tamam. Yeni gibi oldun. Borcun büyüyor.','Into the blood pool… There. Good as new. Your debt grows.'):T('Yine mi yaralandın? Otur, meridyenlerini düzelteyim… Tamam, yeni gibi oldun.','Hurt again? Sit, let me set your meridians right… There, good as new.'));return}
+  await talk(N,tx(pick(d?[
+    ['Çekirdeği çiğ yutmak (Envanter) en hızlı yoldur. Her yutuşta gölgen biraz daha koyulaşır; burada bu bir övgüdür.','Swallowing cores raw (Inventory) is the fastest road. Each one darkens your shadow a little; here, that is praise.'],
+    ['Şeytani yolun bedeli göktedir: felakette yıldırım sana daha ağır iner. Kan Kalkanı o yüzden var.','The demonic path is paid for in the sky: lightning falls heavier in your tribulation. That is what the Blood Ward is for.'],
+    ['Kasabada kimse seni tanımaz ama Kunlun kapısındaki muhafız kan kokusunu alır. Oraya çıkma.','No one in town knows you, but the guard at Kunlun\'s gate can smell blood. Do not go up there.'],
+    ['Kan Gölgesi Pençesi vurduğunun yarısını sana can olarak döndürür. Uzun dövüşlerde hayat kurtarır.','The Blood Shadow Claw returns half its damage to you as life. It saves you in long fights.']]
+   :[
+    ['Beş element birbirini doğurur da, bastırır da: ağaç toprağı, toprak suyu, su ateşi, ateş metali, metal ağacı yener.','The five elements both nourish and suppress one another: wood beats earth, earth water, water fire, fire metal, metal wood.'],
+    ['Zhao Feng\'e aldırma. Çift köklü diye burnu havada. Ama yenersen saygı duyar.','Ignore Zhao Feng. He struts because of his dual root. Beat him, though, and he will respect you.'],
+    ['Usta der ki: "Bin yıllık gelişim bir anda yıkılır; sebebi kalpteki bir tutam hırstır."','The Master says: "A thousand years of cultivation can collapse in a moment, for a pinch of greed in the heart."'],
+    ['Savaştan sonra dizilimde otur. Meditasyon hem gelişim verir hem yaralarını kapatır.','Sit on the array after a fight. Meditation grants cultivation and closes your wounds.'],
+    ['Canavar çekirdeğini çiğ yutanlar oluyor. Hızlıdır ama şeytani yola puan yazar; gök bunu unutmaz.','Some swallow beast cores raw. It is fast, but it adds to the demonic path, and heaven does not forget.']])))}
+async function alchemist(d){const N=tx(NAMES[d?'gu':'dan']);
+  if(P.main<2&&!P.flags.alchemy){await talk(N,d?T('Kazanıma yaklaşma. Elçi seni göndermeden konuşmam.','Stay away from my cauldron. I do not talk until the Envoy sends you.'):T('Ocağın başındayım, görmüyor musun? Önce ustanla konuş.','I am at the furnace, can you not see? Speak to your master first.'));return}
+  if(P.main===2){
+    if(has('ot',3)){take('ot',3);await talk(N,d?T('Hm. Kökleri sağlam. Zehir de ilaç da aynı ottan çıkar; fark dozdadır. Al şunları, kazanımı kullanabilirsin. Şimdi Kan İhtiyarı Xie\'ye git.','Hm. Sound roots. Poison and medicine come from the same herb; the dose is the difference. Take these; you may use my cauldron. Now go to Blood Elder Xie.')
+        :T('Yaprakları taze, kökü sağlam. İzle: önce ana ot, sonra yardımcı, en son bağlayıcı. Bunlar senin; artık kazanımı kullanabilirsin. Şimdi İhtiyar Mo\'ya git.','Fresh leaves, sound roots. Watch: main herb first, then the assistant, the binder last. These are yours; you may use my cauldron from now on. Now go to Elder Mo.'));
+      give('qihap',3);P.flags.alchemy=1;P.main=3}
+    else await talk(N,T(`Üç Ruh Toplama Otu lazım. Sende ${P.inv.ot||0} tane var. Ruh Ormanı'ndaki yüksek otların arasında yetişir.`,`I need three Spirit Gathering Grass. You have ${P.inv.ot||0}. It grows among the tall grass of the Spirit Forest.`));
+    return}
+  await alchemy(N)}
+async function bounty(d){const N=tx(NAMES[d?'xie':'mo']);
+  if(P.main<3){await talk(N,d?T('Sıranı bekle, çaylak.','Wait your turn, whelp.'):T('Av emirleri yeni müritlere verilmez. Önce ustanın verdiği işleri bitir.','Bounties are not given to new disciples. Finish your master\'s tasks first.'));return}
+  if(P.main===3){
+    if(!P.flags.kurtQ){P.flags.kurtQ=1;P.kurt=0;await talk(N,d?T('Ata\'nın havuzu kurudu. Ruh Ormanı\'ndan üç Demir Sırtlı Kurt\'un kanını getir.','The Ancestor\'s pool runs dry. Bring me the blood of three Ironback Wolves from the Spirit Forest.'):T('Ruh Ormanı\'nda Demir Sırtlı Kurtlar çoğaldı, ot toplayanlara saldırıyor. Üçünü avla, ödülünü al.','Ironback Wolves are multiplying in the Spirit Forest and attacking herb gatherers. Hunt three and claim your reward.'));return}
+    if(P.kurt>=3){await talk(N,d?T('Üç kurt, üç kova. Elçi seni bekliyor.','Three wolves, three buckets. The Envoy awaits you.'):T('Üç kurt, üç kayıt. Katkın deftere işlendi. Ustan seni bekliyor.','Three wolves, three entries. Your contribution is recorded. Your master awaits.'));stones(40);gainXp(60);P.main=4;return}
+    await talk(N,T(`${P.kurt}/3 kurt. Ormandaki yüksek otlarda dolaş.`,`${P.kurt}/3 wolves. Roam the tall grass in the forest.`));return}
+  const n=P.inv.cekirdek||0;
+  if(n&&await ask(N,T(`Canavar çekirdeği mi getirdin? Tanesine 20 ruh taşı veririm. (${n} adet)`,`Beast cores? I pay 20 spirit stones each. (${n} held)`),[T('Hepsini teslim et','Hand them all in'),T('Kalsın','Keep them')])===0){take('cekirdek',n);stones(n*20)}
+  else await talk(N,T('Çekirdek bulursan getir.','Bring me cores if you find any.'))}
+const ZHAOLOOK=NL(0,'#f6dcc0','#1c1a24',3,'#c03a3a','#6a3a9a',1,0,'#d0a040',1);
+const S={
+ usta:()=>master(0),elci:()=>master(1),lin:()=>helper(0),ye:()=>helper(1),dan:()=>alchemist(0),gu:()=>alchemist(1),mo:()=>bounty(0),xie:()=>bounty(1),
+ async zhao(){const N=tx(NAMES.zhao);
+  if(P.flags.zhao){await talk(N,P.flags.zhao==='crip'?T('…Uzak dur benden. Bunu unutmayacağım.','…Stay away from me. I will not forget this.'):tx(pick([['Hm. O gün şanslıydın. Ama… fena dövüşmedin.','Hm. You were lucky that day. But… you fought well.'],['Büyük turnuvada seni yeneceğim. O güne kadar ölme.','I will beat you at the grand tournament. Do not die before then.']])));return}
+  await talk(N,P.root==='gok'?T('Göksel kök mü? Hıh. Kök her şey değildir.','A heavenly root? Hmph. Roots are not everything.'):T('Ben çift köklüyüm: ateş ve ağaç. Aramızdaki fark dağ gibi.','I have a dual root: fire and wood. The gap between us is a mountain.'));
+  if(P.L<3){await talk(N,T('3. Katman\'a bile ulaşmamışsın. Seninle dövüşmek zaman kaybı.','You have not even reached Layer 3. Fighting you is a waste of time.'));return}
+  if(await ask(N,T('Ne dersin, bir el dostluk maçı? Kaybeden 30 ruh taşı verir.','What say you to a friendly bout? Loser pays 30 spirit stones.'),[T('Kabul','Accept'),T('Şimdi değil','Not now')]))return;
+  const L=P.L;const r=await battle('',{n:'Zhao Feng',el:'fire',hp:50+L*12,atk:5+L*2.2,def:2+L,xp:40+L*8,st:[0,0],duel:1,look:ZHAOLOOK});
+  if(r==='win'){
+    const c=await ask('',T('Zhao Feng yerde, nefes nefese. Qi\'si dağınık.','Zhao Feng is on the ground, gasping. His Qi is in disarray.'),[T('Elini uzat, kaldır','Offer your hand'),T('Meridyenine bir darbe daha indir, kesesini al (şeytani yol +2)','Strike his meridian once more and take his pouch (demonic path +2)')]);
+    if(c===0){P.flags.zhao=1;await talk(N,T('…Kabul ediyorum. Tekniğin benden üstün. Al taşlarını.','…I concede. Your technique surpasses mine. Take your stones.'));stones(30)}
+    else{P.flags.zhao='crip';addDemon(2);stones(90);await talk('',T('Zhao Feng çığlık attı. Kimse görmedi; ama ruhuna ince, kara bir ip dolandı.','Zhao Feng screams. No one saw, but a thin black thread winds around your soul.'))}}
+  else{P.hp=Math.max(P.hp,Math.round(stats().maxhp*.3));const l=Math.min(30,P.st);P.st-=l;await talk(N,T(`Ha! Dediğim gibi. ${l} ruh taşını alıyorum.`,`Ha! As I said. I am taking ${l} of your spirit stones.`))}},
+ async guard(){await talk(tx(NAMES.guard),P.main<2&&P.origin!=='rogue'?T('Usta\'nın izni olmadan dış kapıdan çıkamazsın, çaylak. Önce Qi\'yi bedenine çekmeyi öğren.','You may not leave the outer gate without the Master\'s leave, novice. First learn to draw Qi into your body.'):T('Dağdan inerken dikkatli ol. Ölümlülerin arasında güç gösterme.','Take care going down the mountain. Do not flaunt your power among mortals.'))},
+ async dguard(){await talk(tx(NAMES.dguard),T('Dışarıda ortodoks köpekleri dolaşıyor. Cübbeni kapat, kan kokunu gizle.','Orthodox dogs prowl outside. Close your robe and hide the smell of blood.'))},
+ async mei(){await talk(tx(NAMES.mei),tx(pick([['Ben de bu yıl alındım! Ölçüm taşı yeşil yandı, ağaç köküymüşüm. Ruh tarlasında çalışıyorum.','I joined this year too! The stone glowed green, so I have a wood root. I work in the spirit fields.'],['Kültivatör olunca ailenden ayrılıyorsun ama "dünyevi bağı kesmek" duygusuz olmak değilmiş. Anneme para yolluyorum.','You leave your family when you become a cultivator, but "cutting worldly ties" does not mean being heartless. I send money to my mother.'],['Gölette balık var ama sazanı yemek yasak! Ejderhaya dönüşebilirmiş.','There are fish in the pond but eating carp is forbidden! They might turn into dragons.']])))},
+ async qian(){const N=tx(NAMES.qian);const stock=[['qihap',12],['sifahap',15],['tilsim',10]];const mul=P.origin==='rogue'?2:1;
+  const pr=k=>k==='yesim'?80:ITEMS[k].v*mul;
+  for(;;){const i=await ask(N,T(`Wanbao Köşkü'nün Qingshi şubesine hoş geldin! Ruh taşın: ${P.st}`,`Welcome to the Qingshi branch of the Wanbao Pavilion! Your spirit stones: ${P.st}`),[...stock.map(([id,c])=>T(`Al: ${tx(ITEMS[id].n)} (${c} taş)`,`Buy: ${tx(ITEMS[id].n)} (${c} stones)`)),T('Elimdekileri satmak istiyorum','I want to sell'),T('Ayrıl','Leave')]);
+    if(i===stock.length+1)return;
+    if(i===stock.length){const sell=Object.keys(P.inv).filter(k=>ITEMS[k].v>0||k==='yesim');
+      if(!sell.length){await talk(N,T('Satacak bir şeyin yok gibi.','You seem to have nothing to sell.'));continue}
+      const j=await ask(N,T('Ne satıyorsun?','What are you selling?'),[...sell.map(k=>`${tx(ITEMS[k].n)} ×${P.inv[k]} (${pr(k)})`+(k==='yesim'?T(' — başkasının malı (şeytani yol +1)',' — someone else\'s property (demonic path +1)'):'')),T('Vazgeç','Never mind')]);
+      if(j<sell.length){const k=sell[j];take(k);stones(pr(k));if(k==='yesim'){P.flags.kolyeDone='sold';addDemon(1)}}continue}
+    const[id,c]=stock[i];if(P.st<c){await talk(N,T('Taşın yetmiyor, genç dostum. Veresiye yok.','Not enough stones, my young friend. No credit.'));continue}
+    P.st-=c;give(id);hud()}},
+ async hu(){const N=tx(NAMES.hu);
+  if(P.wpn>=5){await talk(N,T('Kılıcın bu ocakta çıkabileceği son seviyede.','Your sword is as good as this forge can make it.'));return}
+  const cost=30*(P.wpn+1);
+  if(await ask(N,T(`Kılıcını dövüp güçlendiririm (+3 saldırı). ${cost} ruh taşı ve 1 Canavar Çekirdeği ister. Şu an: +${P.wpn}`,`I can reforge your sword (+3 attack). It takes ${cost} spirit stones and 1 Beast Core. Current: +${P.wpn}`),[T('Güçlendir','Upgrade'),T('Sonra','Later')]))return;
+  if(P.st<cost||!has('cekirdek')){await talk(N,T('Taşın ya da çekirdeğin eksik. Ormandaki canavarlar çekirdek düşürür.','You lack the stones or the core. Beasts in the forest drop cores.'));return}
+  P.st-=cost;take('cekirdek');P.wpn++;await talk(N,T(`Çekiç, örs, su! Al bakalım: +${P.wpn} kılıç.`,`Hammer, anvil, water! There you go: a +${P.wpn} sword.`))},
+ async falci(){const N=tx(NAMES.falci);
+  if(await ask(N,T('Göklerin sırrını satarım, 10 ruh taşı. Her fal ömrümden bir gün götürür ama karın doyurmak lazım.','I sell the secrets of heaven, 10 spirit stones. Each reading costs me a day of life, but a man must eat.'),[T('Fal baktır (10 taş)','Have your fortune read (10 stones)'),T('Geç','Pass')]))return;
+  if(P.st<10){await talk(N,T('Kesen boş. Kader bedava konuşmaz.','Your pouch is empty. Fate does not speak for free.'));return}
+  P.st-=10;await talk(N,T('Kabuk çatladı… Dinle:\n','The shell cracks… Listen:\n')+tx(pick(MYST)));
+  await talk(N,P.demon>=6?T('Ruhun kan kırmızısı. Güç sana hızla geliyor; gök de sana hızla gelecek.','Your soul is blood red. Power comes to you swiftly; so will heaven.'):P.demon>=3?T('Ruhuna kara ipler dolanmış. Yol ikiye ayrılıyor; hangisine basarsan öbürü kapanır.','Black threads wind around your soul. The road forks; step on one and the other closes.'):P.karma>=4?T('Üzerinde altın bir ışık var. Erdemin birikmiş; felaket günü hafifler.','There is a golden light upon you. Your virtue has gathered; the day of tribulation will be lighter.'):T('Nedensellik iplerin ince. Ne büyük borcun var ne büyük alacağın.','Your threads of karma are thin. You owe little and are owed little.'))},
+ async su(){const N=tx(NAMES.su);
+  if(P.flags.kolyeDone==='sold'){await talk(N,T('Kolyemi hâlâ bulamadım… Sen de görmedin, değil mi?','I still have not found my pendant… You have not seen it either, have you?'));return}
+  if(P.flags.kolyeDone){await talk(N,T('Kültivatörlerin onda yedisi benim gibi başıboş gezgindir, ama kaynakların onda biri bile bizde değil. Yine de özgürüz.','Seven in ten cultivators are rogues like me, yet we hold not one tenth of the resources. Still, we are free.'));return}
+  if(has('yesim')){
+    const c=await ask(N,T('O… o benim kolyem mi?','Is that… is that my pendant?'),[T('Kolyeyi geri ver','Return the pendant'),T('"Hayır, benzemiş." (Sakla; Tüccar Qian\'a satılabilir)','"No, it only looks like it." (Keep it; Merchant Qian would buy it)')]);
+    if(c===0){take('yesim');P.flags.kolyeDone=1;addKarma(1);await talk(N,T('Ailemden kalan tek şey buydu. Sana borçlandım. Al, az ama gönülden.','It was all I had left of my family. I am in your debt. Take this; it is little, but from the heart.'));stones(50);gainXp(40)}
+    else await talk(N,T('Öyle mi… Özür dilerim, gözüm yanılmış.','Is that so… Forgive me, my eyes deceived me.'));
+    return}
+  if(!P.flags.kolyeQ){P.flags.kolyeQ=1;await talk(N,T('Bir ricam var. Ruh Ormanı\'nda, nehrin batısındaki güney otlağında kurtlardan kaçarken yeşim kolyemi düşürdüm. Bulursan getirir misin?','A favor. In the Spirit Forest, in the southern meadow west of the river, I dropped my jade pendant while fleeing wolves. Would you bring it if you find it?'));return}
+  await talk(N,T('Kolyem nehrin batısında, güneydeki otlakta bir yerde olmalı. Parıltısından tanırsın.','My pendant should be somewhere in the southern meadow west of the river. You will know it by its glint.'))},
+ async nine(){const N=tx(NAMES.nine);
+  if(P.flags.nineDone){await talk(N,T('Torunum ayağa kalktı, tarlada koşuyor. Senin için her sabah tütsü yakıyorum.','My grandchild is back on his feet, running in the fields. I burn incense for you every morning.'));return}
+  if(P.flags.nineQ&&has('ginseng')){
+    if(await ask(N,T('O elindeki… Kan Ginsengi mi?','Is that… Blood Ginseng in your hand?'),[T('Ginsengi ver','Give the ginseng'),T('Henüz veremem','I cannot yet')]))return;
+    take('ginseng');P.flags.nineDone=1;addKarma(2);await talk(N,T('Gök seni korusun! Verecek ruh taşım yok ama rahmetli kocam gezgin bir tılsımcıydı; bunlar ondan kaldı.','Heaven keep you! I have no spirit stones, but my late husband was a wandering talisman maker; these were his.'));give('tilsim',2);return}
+  P.flags.nineQ=1;await talk(N,T('Torunum ateşler içinde yatıyor. Şifacı "Kan Ginsengi lazım" dedi ama ormana giremem, kurtlar var. Bir kök bulursan…','My grandchild is burning with fever. The healer says he needs Blood Ginseng, but I cannot enter the forest; there are wolves. If you find a root…'))},
+ async cocuk(){await talk(tx(NAMES.cocuk),tx(pick([['Ben de ölümsüz olacağım! Ama ölçüm taşı bende yanmadı… Demirci Hu "dövüş sanatıyla da Savaş Ermişi olunur" dedi!','I will be an immortal too! But the stone did not light for me… Blacksmith Hu says you can become a Martial Saint through fighting arts!'],['Geceleri kuzeyden kara bir rüzgâr esiyor. Annem "geçide gitme, sıçrayan cesetler var" diyor.','At night a black wind blows from the north. Mother says, "Stay away from the pass, there are hopping corpses."'],['Ormanın doğusunda bir mağara varmış, içinden kan kokusu geliyormuş. Kimse yaklaşmıyor.','They say there is a cave east of the forest that smells of blood. Nobody goes near it.']])))},
+ async fox(){const N=tx(NAMES.fox);
+  await talk('',T('Otların arasında üç kuyruklu beyaz bir tilki yatıyor. Arka bacağında kurt ısırığı var.','A three-tailed white fox lies in the grass, a wolf bite on its hind leg.'));
+  await talk(N,T('"…İnsan çocuğu. Qingqiu\'dan geliyorum. Çekirdeğimi istiyorsan al; kaçacak gücüm kalmadı."','"…Human child. I come from Qingqiu. If you want my core, take it; I have no strength left to run."'));
+  const i=await ask('',T('Ne yapacaksın?','What will you do?'),[T('Küçük Dönüş Hapı ver','Give a Lesser Restoration Pill')+(has('sifahap')?'':T(' (yok)',' (none)')),T('Çekirdeği için öldür (şeytani yol +2)','Kill it for its core (demonic path +2)'),T('Uzaklaş','Walk away')]);
+  if(i===0){if(!has('sifahap')){await talk('',T('Yanında Küçük Dönüş Hapı yok.','You have no Lesser Restoration Pill.'));return}
+    take('sifahap');P.flags.fox='saved';P.flags.mirror=1;addKarma(2);
+    await talk(N,T('"Can borcu, gök defterine yazılır. Bunu al: Tilki Ay Aynası\'ndan bir kırık. Qingqiu bu iyiliği unutmaz."','"A life debt is written in heaven\'s ledger. Take this: a shard of the Fox Moon Mirror. Qingqiu will not forget."'));toast(T('Tilki Aynası Kırığı: +3 savunma','Fox Mirror Shard: +3 defense'))}
+  else if(i===1){const r=await battle('ytilki');if(r==='win'){P.flags.fox='slain';P.karma-=2;addDemon(2);give('cekirdek',2);await talk('',T('Tilkinin son bakışı aklından çıkmıyor.','You cannot shake the fox\'s last look.'))}else if(r==='lose')await defeat()}},
+ async monk(){const N=tx(NAMES.monk);
+  for(;;){const i=await ask(N,P.demon>=5?T('Amitabha. Üzerinde kan gölgesi var, evlat. Yine de kapım açık.','Amitabha. There is a blood shadow upon you, child. Still, my door is open.'):T('Amitabha. Büyük Gök Gürültüsü Tapınağı\'ndan geliyorum; bu geçitte huzursuz ruhlara dua okuyorum.','Amitabha. I come from the Great Thunderclap Temple, chanting for the restless dead of this pass.'),[T('Şifa iste','Ask for healing'),T('Bağış yap (20 taş)','Donate (20 stones)'),T('Kan Tarikatı\'nı sor','Ask about the Blood Cult'),T('Ayrıl','Leave')]);
+    if(i===3)return;
+    if(i===0){heal();hud();await talk(N,T('Yaraların kapandı. Öfkeyle değil, berrak kalple dövüş.','Your wounds are closed. Fight with a clear heart, not with anger.'))}
+    if(i===1){if(P.st<20)await talk(N,T('Niyetin yeter, kesen boş.','Your intent suffices; your pouch is empty.'));else if(P.flags.bagis)await talk(N,T('Bir kez verdin, yeter. Erdem satın alınmaz.','You gave once; that is enough. Virtue cannot be bought.'));else{P.st-=20;P.flags.bagis=1;addKarma(1);hud();await talk(N,T('Bu taşlarla köyün ölülerine tören yapacağım.','With these stones I will hold rites for the village dead.'))}}
+    if(i===2)await talk(N,T('Kan Nehri Atası sekiz bin yıllık bir canavardır. Kuzeydeki sunaktaki Xue Sha onun küçük müritlerinden. Kan yolu Buda ışığından, yıldırımdan ve toprak elementinden korkar. Her üç hamlesinden biri ağırdır: o an savun.','The Blood River Ancestor is a monster eight thousand years old. Xue Sha at the northern altar is one of his lesser disciples. The blood path fears Buddha-light, thunder and the earth element. One in three of his moves is heavy: guard then.'))}},
+ async boss(){const N=tx(NAMES.boss);const d=isDemon();
+  await talk(N,d?T('Kan kokun bizden… Elçi\'nin köpeği misin? Ata\'nın kanını içen güçlenir; ben de güçlendim. Beni durdurabileceğini mi sanıyorsun?','You smell of our blood… The Envoy\'s dog, are you? Whoever drinks the Ancestor\'s blood grows strong, and so I have. You think you can stop me?')
+    :T('Bir Kunlun çaylağı mı? Kanın taze kokuyor… Ata\'ya güzel bir adak olursun.','A whelp from Kunlun? Your blood smells fresh… You will make a fine offering to the Ancestor.'));
+  const opts=[T('Kılıcını çek','Draw your sword'),T('Geri çekil','Back away')];const canJoin=!d&&P.demon>=3;
+  if(canJoin)opts.push(T('"Bana kan yolunu öğret." (Tarikatına ihanet et, Kan Tarikatı\'na katıl)','"Teach me the blood path." (Betray your sect and join the Blood Cult)'));
+  const c=await ask('',T('Kan sunağının önündesin. Xue Sha çok güçlü görünüyor.','You stand before the blood altar. Xue Sha looks very strong.')+(!d&&!canJoin?T('\n(Şeytani yol puanın 3 olsaydı başka bir seçeneğin olurdu.)','\n(With 3 demonic path points you would have another choice.)'):''),opts);
+  if(c===1)return;
+  if(c===2){P.faction='d';P.flags.boss='ally';addDemon(3);
+    await talk(N,T('Ha! Kunlun\'un kuzusu kurt olmak istiyor. Gözlerinde gördüm zaten. Al şu kan mührünü; ormanın doğusundaki mağara artık sana açık. Elçi Mo Luo\'ya git, benim adımı ver.','Ha! Kunlun\'s lamb wants to be a wolf. I saw it in your eyes. Take this blood seal; the cave east of the forest is open to you now. Go to Envoy Mo Luo and give him my name.'));
+    await talk('',T('Artık Kan Tanrısı Tarikatı\'nın müridisin. Kunlun\'un kapıları sana kapandı. Görevlerine Kan Mağarası\'ndaki Kan Elçisi ile devam edeceksin.','You are now a disciple of the Blood God Cult. Kunlun\'s gates are closed to you. You will continue your tasks under the Blood Envoy in the Blood Cave.'));return}
+  const r=await battle('murid');
+  if(r==='win'){P.flags.boss=1;if(d)addDemon(1);else addKarma(2);await talk(N,T('İmkânsız… Ata… kan gölgesi…','Impossible… Ancestor… the blood shadow…'));
+    await talk('',d?T('Xue Sha\'nın kanı sunağa aktı. Bir kısmı sana da geçti. Elçi\'ye dön.','Xue Sha\'s blood runs into the altar. Some of it passes into you. Return to the Envoy.'):T('Xue Sha kana dönüşüp toprağa aktı. Sunaktaki kızıl ışık söndü. Usta\'ya dön.','Xue Sha dissolves into blood and seeps into the earth. The red glow of the altar dies. Return to the Master.'))}
+  else if(r==='lose')await defeat()}
+};
+async function interact(){
+  if(!dlg.hidden){if(dlgNext)dlgNext();return}
+  if(busy||scene!=='play'||P.moving)return;
+  const dx=[0,-1,1,0][P.dir],dy=[1,0,0,-1][P.dir];const o=objAt(P.x+dx,P.y+dy);
+  if(!o)return;
+  if(o.t==='npc'){o.face=[3,2,1,0][P.dir];run(S[o.id])}
+  else if(o.t==='sign')run(()=>talk(T('Tabela','Sign'),tx(o.text)));
+  else if(o.t==='herb'){o.until=Date.now()+90000;give(o.item);save()}
+  else if(o.t==='item'){P.flags['got_'+o.id]=1;give(o.item);save()}
+  else if(o.t==='chest'){P.flags['got_'+o.id]=1;for(let i=0;i<o.loot.length;i+=2){if(o.loot[i]==='st')stones(o.loot[i+1]);else give(o.loot[i],o.loot[i+1])}hud();save()}
+}
+const onArray=()=>'AZ'.includes(cur.m[P.y][P.x]);
+function meditate(){if(busy||scene!=='play'||P.moving)return;
+  if(P.xp>=need(P.L)&&P.L===10){run(foundation);return}
+  if(P.xp>=need(P.L)&&P.L===14){run(tribulation);return}
+  P.med=!P.med;P.medT=0;if(P.med)toast(onArray()?T('Dizilimde meditasyon: Qi çok daha yoğun','Meditating on the array: Qi is far denser'):T('Meditasyon (hareket edince biter)','Meditating (moving ends it)'))}
+
+/* ---------- Menü ---------- */
+const CODEX=[
+ [['Üç Âlem','The Three Realms'],['Yukarıda otuz altı katlı Gök Âlemi, ortada dört kıta ve dört denizden oluşan İnsan Âlemi, aşağıda on sarayıyla Öte Dünya.','Above, the thirty-six heavens; in the middle, the mortal realm of four continents and four seas; below, the underworld with its ten courts.']],
+ [['On Âlem','The Ten Stages'],['Qi Arıtma → Temel Kurma → Altın Çekirdek → Yeni Doğan Ruh → Ruh Dönüşümü → Boşluk Arıtma → Bütünleşme → Büyük Taşıyış → Felaket Aşımı → Yükseliş.','Qi Refining → Foundation → Golden Core → Nascent Soul → Spirit Transformation → Void Refining → Integration → Mahayana → Tribulation → Ascension.']],
+ [['Ruh Kökleri','Spirit Roots'],['Göksel (tek element) on binde bir. Çift, üçlü, dörtlü kökler sırayla yavaşlar. Beş elementli "sahte kök" en yavaşıdır ama dengelidir.','Heavenly (single element) is one in ten thousand. Dual, triple and quad roots grow slower in turn. The five-element "false root" is slowest, but balanced.']],
+ [['Beş Element','The Five Elements'],['Bastırma: ağaç toprağı, toprak suyu, su ateşi, ateş metali, metal ağacı yener. Zayıf güçlüyü bastırmaya kalkarsa kendi yaralanır.','Suppression: wood beats earth, earth water, water fire, fire metal, metal wood. The weak who try to suppress the strong hurt themselves.']],
+ [['Ortodoks Tarikatlar','The Orthodox Sects'],['Yeşim Boşluk Sarayı (Kunlun), Shu Dağı Kılıç Tarikatı, Büyük Gök Gürültüsü Tapınağı, Taiqing Manastırı, Dan Xia Vadisi.','Jade Void Palace (Kunlun), the Shu Mountain Sword Sect, the Great Thunderclap Temple, Taiqing Abbey, Danxia Valley.']],
+ [['Şeytani Yol','The Demonic Path'],['Kan Tanrısı Tarikatı, Göksel Şeytan Sarayı, Yin Uğursuzluk Tarikatı. Şeytani seçimler puan biriktirir: 3 puanda Kan Gölgesi Pençesi, 5 puanda Kan Kalkanı, 8 puanda Ruh Yutan Sancak açılır. Bedeli: gök felaketi her puanla ağırlaşır.','The Blood God Cult, the Heavenly Demon Palace, the Yin Fiend Sect. Demonic choices build points: Blood Shadow Claw at 3, Blood Ward at 5, Soul-Devouring Banner at 8. The price: every point makes the heavenly tribulation heavier.']],
+ [['Nedensellik ve Erdem','Karma and Virtue'],['Can kurtarmak, kötülüğü durdurmak erdem biriktirir; erdem atılım şansını artırır, gök felaketini hafifletir.','Saving lives and stopping evil builds virtue; virtue raises breakthrough odds and eases the tribulation.']],
+ [['Gök Felaketleri','Heavenly Tribulations'],['Altın Çekirdek için Üç-Dokuz (27 mavi yıldırım), Yeni Doğan Ruh için Altı-Dokuz (54 kızıl yıldırım), en sonda dokuz katlı Mor Gök Yıldırımı.','Three-Nine for Golden Core (27 blue bolts), Six-Nine for Nascent Soul (54 red bolts), and at the very end the ninefold Purple Heaven Thunder.']]];
+const QT={o:[
+ ['Ana salonun önündeki Usta Xuanji ile konuş.','Speak with Master Xuanji in front of the main hall.'],
+ ['Avlunun batısındaki Ruh Toplama Dizilimi\'nde meditasyon yap (M), Qi Arıtma 2. Katman\'a ulaş ve Usta\'ya dön.','Meditate (M) on the Spirit Gathering Array in the west of the court, reach Qi Refining Layer 2 and return to the Master.'],
+ ['Ruh Ormanı\'ndan (kasabanın doğusu) 3 Ruh Toplama Otu topla, Simya Ustası Dan Chen\'e götür.','Gather 3 Spirit Gathering Grass in the Spirit Forest (east of town) and bring them to Alchemist Dan Chen.'],
+ ['İhtiyar Mo\'dan av emri al: 3 Demir Sırtlı Kurt avla ve Mo\'ya dön.','Take Elder Mo\'s bounty: hunt 3 Ironback Wolves and return to him.'],
+ ['Usta Xuanji\'ye dön. (Qi Arıtma 5. Katman gerekir.)','Return to Master Xuanji. (Requires Qi Refining Layer 5.)'],
+ ['Kara Rüzgâr Geçidi\'nin kuzeyindeki Kan Müridi Xue Sha\'yı yen, Usta\'ya dön.','Defeat Blood Disciple Xue Sha in the north of the Black Wind Pass, then return to the Master.'],
+ ['Qi Arıtma 10. Katman\'ın sonuna ulaş, meditasyonla Temel Kur ve Usta\'ya dön.','Reach the end of Qi Refining Layer 10, establish your Foundation through meditation and return to the Master.'],
+ ['Temel Kurma Zirve Evresi\'nin sonuna ulaş, meditasyonla Gök Felaketi\'ni aş ve Usta\'ya dön.','Reach the end of Peak Foundation, survive the tribulation through meditation and return to the Master.'],
+ ['Altın Çekirdek\'e ulaştın. Büyük çağ yaklaşıyor…','You have reached Golden Core. The great age approaches…']],
+ d:[
+ ['Kan Mağarası\'ndaki sunağın önünde Kan Elçisi Mo Luo ile konuş. (Mağara, Ruh Ormanı\'nın doğu ucunda.)','Speak with Blood Envoy Mo Luo before the altar in the Blood Cave. (The cave is at the eastern edge of the Spirit Forest.)'],
+ ['Salonun batısındaki Kan Dizilimi\'nde meditasyon yap (M), Qi Arıtma 2. Katman\'a ulaş ve Elçi\'ye dön.','Meditate (M) on the Blood Array west of the hall, reach Qi Refining Layer 2 and return to the Envoy.'],
+ ['Ruh Ormanı\'ndan (mağaranın batısı) 3 Ruh Toplama Otu topla, Zehir Ustası Gu\'ya götür.','Gather 3 Spirit Gathering Grass in the Spirit Forest (west of the cave) and bring them to Poison Master Gu.'],
+ ['Kan İhtiyarı Xie için 3 Demir Sırtlı Kurt avla ve ona dön.','Hunt 3 Ironback Wolves for Blood Elder Xie and return to him.'],
+ ['Kan Elçisi\'ne dön. (Qi Arıtma 5. Katman gerekir.)','Return to the Blood Envoy. (Requires Qi Refining Layer 5.)'],
+ ['Kara Rüzgâr Geçidi\'nin kuzeyindeki hain Xue Sha\'yı öldür, Elçi\'ye dön.','Kill the traitor Xue Sha in the north of the Black Wind Pass, then return to the Envoy.'],
+ ['Qi Arıtma 10. Katman\'ın sonuna ulaş, meditasyonla Temel Kur ve Elçi\'ye dön.','Reach the end of Qi Refining Layer 10, establish your Foundation through meditation and return to the Envoy.'],
+ ['Temel Kurma Zirve Evresi\'nin sonuna ulaş, Gök Felaketi\'ni aş ve Elçi\'ye dön. Gök sana daha sert vuracak.','Reach the end of Peak Foundation, survive the tribulation and return to the Envoy. Heaven will strike you harder.'],
+ ['Altın Çekirdek\'e ulaştın. Kan Nehri Atası adını öğrendi…','You have reached Golden Core. The Blood River Ancestor has learned your name…']]};
+function questText(){if(P.main===0&&P.origin==='rogue')return T('Kuzeydeki Kunlun\'a çık ve ana salonun önündeki Usta Xuanji\'den seni mürit almasını iste.','Climb to Kunlun in the north and ask Master Xuanji, in front of the main hall, to take you as a disciple.');
+  if(P.main===5&&P.flags.boss)return isDemon()?T('Kan Mağarası\'ndaki Kan Elçisi Mo Luo\'ya dön.','Return to Blood Envoy Mo Luo in the Blood Cave.'):T('Usta Xuanji\'ye dön.','Return to Master Xuanji.');
+  return tx(QT[P.faction][P.main])}
+let mtab='kar';
+function openMenu(tab){if(busy||scene!=='play')return;busy=true;P.med=false;mtab=tab||mtab;$('#menu').hidden=false;drawMenu()}
+function closeMenu(){$('#menu').hidden=true;busy=false;hud()}
+function el(tag,txt,cls){const e=document.createElement(tag);if(txt!=null)e.textContent=txt;if(cls)e.className=cls;return e}
+function drawMenu(){
+  const tabs=$('#mtabs');tabs.innerHTML='';
+  [['kar',T('Karakter','Character')],['env',T('Envanter','Inventory')],['gor',T('Görevler','Quests')],['map',T('Harita','Map')],['evr',T('Evren','Codex')],['lang',LANG?'Türkçe':'English'],['x',T('Kapat','Close')]].forEach(([k,n])=>{const b=el('button',n,k===mtab?'on':'');
+    b.onclick=()=>{if(k==='x')closeMenu();else if(k==='lang'){LANG^=1;applyLang();drawMenu()}else{mtab=k;drawMenu()}};tabs.appendChild(b)});
+  const B=$('#mbody');B.innerHTML='';const s=stats();
+  if(mtab==='kar'){B.appendChild(el('h3',P.name));const kv=el('div',null,'kv');
+    [[T('Âlem','Realm'),realm(P.L)],[T('Köken','Origin'),tx(ORIG[P.origin].n)],[T('Bağlılık','Allegiance'),isDemon()?T('Kan Tanrısı Tarikatı (şeytani)','Blood God Cult (demonic)'):P.origin==='rogue'&&P.main<1?T('Tarikatsız','Sectless'):T('Yeşim Boşluk Sarayı (ortodoks)','Jade Void Palace (orthodox)')],
+     [T('Ruh kökü','Spirit root'),tx(EL[P.el].n)+' · '+tx(ROOTS[P.root].n)],[T('Can','HP'),P.hp+' / '+s.maxhp],['Qi',P.qi+' / '+s.maxqi],[T('Gelişim','Cultivation'),P.xp+' / '+need(P.L)],
+     [T('Saldırı','Attack'),s.atk+T(' (kılıç +',' (sword +')+P.wpn+')'],[T('Savunma','Defense'),s.def],[T('Ruh taşı','Spirit stones'),P.st],
+     [T('Erdem','Virtue'),P.karma+' · '+(P.karma>=4?T('Parlak','Radiant'):P.karma>0?T('Temiz','Clean'):P.karma<0?T('Lekeli','Stained'):T('Nötr','Neutral'))],
+     [T('Şeytani yol','Demonic path'),P.demon+T(' puan · ',' pts · ')+demonRank()],
+     [T('Teknikler','Techniques'),techs().map(t=>t.n).join(', ')||T('Henüz yok','None yet')]].forEach(([a,b])=>{kv.appendChild(el('span',a));kv.appendChild(el('span',String(b)))});
+    B.appendChild(kv);const sv=el('button',T('Oyunu Kaydet','Save Game'));sv.style.marginTop='12px';sv.onclick=()=>{save();toast(T('Kaydedildi','Saved'));closeMenu()};B.appendChild(sv)}
+  if(mtab==='env'){B.appendChild(el('h3',T('Saklama Kesesi','Storage Pouch')));const ids=Object.keys(P.inv);if(!ids.length)B.appendChild(el('p',T('Kesen boş.','Your pouch is empty.')));
+    ids.forEach(id=>{const it=ITEMS[id],row=el('div',null,'item'),d=el('div');d.appendChild(el('span',tx(it.n)+' ×'+P.inv[id]));d.appendChild(el('small',tx(it.d)));row.appendChild(d);
+      if(it.use){const b=el('button',T('Kullan','Use'));b.onclick=()=>{if(id==='qihap')gainXp(15);toast(useItem(id));drawMenu()};row.appendChild(b)}
+      if(it.eat){const b=el('button',T('Çiğ yut','Swallow raw'));b.onclick=()=>{take(id);gainXp(25+P.L*4);addDemon(1);drawMenu()};row.appendChild(b)}
+      B.appendChild(row)})}
+  if(mtab==='gor'){B.appendChild(el('h3',T('Ana Görev','Main Quest')));B.appendChild(el('p',questText()+(P.main===3&&P.flags.kurtQ?` (${P.kurt}/3)`:'')));
+    B.appendChild(el('h3',T('Yan Görevler','Side Quests')));let n=0;const add=t=>{B.appendChild(el('p','• '+t));n++};
+    if(P.flags.kolyeQ&&!P.flags.kolyeDone)add(T('Su Wan\'ın yeşim kolyesini Ruh Ormanı\'nda bul (nehrin batısı, güney otlak).','Find Su Wan\'s jade pendant in the Spirit Forest (west of the river, southern meadow).'));
+    if(P.flags.nineQ&&!P.flags.nineDone)add(T('Wang Nine\'nin torunu için bir Kan Ginsengi getir.','Bring a Blood Ginseng for Granny Wang\'s grandchild.'));
+    if(P.flags.lin&&!P.flags.zhao&&!isDemon())add(T('Zhao Feng ile dostluk maçı yap (3. Katman gerekir).','Have a friendly bout with Zhao Feng (requires Layer 3).'));
+    if(!n)B.appendChild(el('p',T('Şu an yok. Kasabadaki insanlarla konuş.','None right now. Talk to people in town.')))}
+  if(mtab==='map'){B.appendChild(el('h3',T('Dünya Haritası','World Map')));const w=document.createElement('canvas');w.id='wmap';w.width=640;w.height=330;B.appendChild(w);
+    B.appendChild(el('h3',T('Bölge: ','Area: ')+tx(cur.n)));const l=document.createElement('canvas');l.id='lmap';l.width=cur.m[0].length*8;l.height=cur.m.length*8;B.appendChild(l);
+    B.appendChild(el('p',T('Sarı: sen · Beyaz: kişiler · Yeşil: çıkışlar · Camgöbeği veya kırmızı kare: dizilim','Yellow: you · White: people · Green: exits · Cyan or red square: array'),'legend'));drawMaps()}
+  if(mtab==='evr')CODEX.forEach(([h,t])=>{B.appendChild(el('h3',tx(h)));B.appendChild(el('p',tx(t)))})}
+const LINKS=[['sect','town'],['town','forest'],['forest','pass'],['forest','cave']];
+const WCOL={sect:'#2b6f6c',town:'#a8443a',forest:'#2c6e3a',pass:'#4a4452',cave:'#8a1a2a'};
+function drawMaps(){
+  const w=$('#wmap'),l=$('#lmap');if(!w||!l)return;const blink=Math.floor(animT*3)&1;
+  let c=w.getContext('2d');c.fillStyle='#1a1830';c.fillRect(0,0,640,330);
+  c.fillStyle='#22203c';for(let i=0;i<40;i++)c.fillRect((i*97)%640,(i*61)%330,3,3);
+  c.strokeStyle='#c9a877';c.lineWidth=4;c.setLineDash([8,6]);LINKS.forEach(([a,b])=>{c.beginPath();c.moveTo(MAPS[a].wx,MAPS[a].wy);c.lineTo(MAPS[b].wx,MAPS[b].wy);c.stroke()});c.setLineDash([]);
+  c.font='22px VT323, monospace';c.textAlign='center';
+  for(const k in MAPS){const M=MAPS[k],here=cur===M,locked=(k==='cave'&&!isDemon())||(k==='sect'&&isDemon());
+    c.fillStyle=WCOL[k];c.fillRect(M.wx-22,M.wy-16,44,32);
+    c.strokeStyle=here?'#e8b84a':'#ebe2cb';c.lineWidth=here?4:2;c.strokeRect(M.wx-22,M.wy-16,44,32);
+    c.fillStyle=here?'#e8b84a':locked?'#a79fc0':'#ebe2cb';c.fillText((k==='cave'&&!isDemon()&&!P.seen.cave?'???':tx(M.short))+(locked?T(' (kapalı)',' (closed)'):''),M.wx,M.wy+38);
+    if(here&&blink){c.fillStyle='#e8b84a';c.beginPath();c.moveTo(M.wx,M.wy-20);c.lineTo(M.wx-9,M.wy-36);c.lineTo(M.wx+9,M.wy-36);c.fill()}}
+  c=l.getContext('2d');c.imageSmoothingEnabled=false;c.drawImage(cur.mini,0,0,l.width,l.height);
+  cur.exits.forEach(e=>{c.fillStyle='#5fd0a8';c.fillRect(e.x*8,e.y*8,8,8)});
+  cur.objs.forEach(o=>{if(o.t==='npc'&&!objHidden(o)){c.fillStyle='#ffffff';c.fillRect(o.x*8+2,o.y*8+2,4,4)}});
+  c.fillStyle=blink?'#e8b84a':'#12101c';c.fillRect(P.x*8-2,P.y*8-2,12,12);c.fillStyle='#e8b84a';c.fillRect(P.x*8+1,P.y*8+1,6,6)}
+
+/* ---------- Dünya ---------- */
+function enterMap(k,x,y){P.map=k;cur=MAPS[k];P.x=x;P.y=y;P.moving=false;P.med=false;P.seen[k]=1;hud();save()}
+const keys={};
+function update(dt){
+  animT+=dt;if(scene!=='play'||!P)return;
+  if(P.moving){P.t+=dt*6.5;if(P.t>=1){P.moving=false;onStep()}}
+  else if(!busy){
+    let d=-1;if(keys.down)d=0;else if(keys.left)d=1;else if(keys.right)d=2;else if(keys.up)d=3;
+    if(d>=0){P.dir=d;P.med=false;const nx=P.x+[0,-1,1,0][d],ny=P.y+[1,0,0,-1][d];
+      if(walkable(nx,ny)){P.fx=P.x;P.fy=P.y;P.x=nx;P.y=ny;P.t=0;P.moving=true;P.step=(P.step||0)+1}}
+    if(P.med){P.medT+=dt;if(P.medT>=.5){P.medT=0;const s=stats();
+      const g=(2+P.L*.45)*ROOTS[P.root].m*cur.qi*(onArray()?2:1)*(P.origin==='jade'?1.1:1)*.5;P.hp=Math.min(s.maxhp,P.hp+Math.ceil(s.maxhp*.03));P.qi=Math.min(s.maxqi,P.qi+Math.ceil(s.maxqi*.05));
+      const cap=P.L===10||P.L===14,full=P.xp>=need(P.L)&&cap;gainXp(g);
+      if(!full&&P.xp>=need(P.L)&&cap){P.med=false;run(P.L===10?foundation:tribulation)}}}
+  }
+}
+function onStep(){
+  const ex=cur.exits.find(e=>e.x===P.x&&e.y===P.y);
+  if(ex){
+    if(P.map==='sect'&&P.main<2&&P.origin!=='rogue'){P.y-=1;run(S.guard);return}
+    if(ex.to==='sect'&&isDemon()){P.y+=1;run(()=>talk(tx(NAMES.guard),T('Dur! Üzerinde kan kokusu var. Şeytani yolun müritleri Kunlun\'a adım atamaz. Defol, yoksa çanı çalarım!','Halt! You reek of blood. Disciples of the demonic path do not set foot on Kunlun. Begone, or I ring the bell!')));return}
+    if(ex.to==='cave'&&!isDemon()){P.x-=1;P.seen.cave=1;run(()=>talk('',T('Mağaranın ağzındaki kan mührü seni geri itti. İçeriden uğultu geliyor. Burası Kan Tanrısı Tarikatı\'nın inlerinden biri; mühür yalnızca kan yolunun müritlerine açılıyor.','The blood seal at the cave mouth throws you back. A hum comes from within. This is a den of the Blood God Cult; the seal opens only to disciples of the blood path.')));return}
+    enterMap(ex.to,ex.tx,ex.ty);toast(tx(cur.n));return}
+  const t=cur.m[P.y][P.x];
+  if(cur.enc&&(t===','||t==='d')&&Math.random()<cur.enc)run(encounter)}
+const petals=Array.from({length:22},(_,i)=>({x:(i*53)%320,y:(i*89)%208,s:10+i%7*3}));
+function render(){
+  if(scene!=='play'||!P||!cur)return;
+  const m=cur.m,H=m.length,W=m[0].length;
+  let ppx=P.x*TS,ppy=P.y*TS;if(P.moving){ppx=(P.fx+(P.x-P.fx)*P.t)*TS;ppy=(P.fy+(P.y-P.fy)*P.t)*TS}
+  const camX=Math.round(clamp(ppx-152,0,W*TS-320)),camY=Math.round(clamp(ppy-96,0,H*TS-208));
+  const x0=camX>>4,y0=camY>>4,wv=Math.floor(animT*2);
+  for(let y=y0;y<=y0+VH&&y<H;y++)for(let x=x0;x<=x0+VW&&x<W;x++){const t=m[y][x];let v=(x*7+y*13)&3;if(t==='W'||t==='B')v=(v+wv)&3;cx.drawImage(tiles[t][v],x*TS-camX,y*TS-camY)}
+  if(cur===MAPS.sect){cx.fillStyle=`rgba(127,232,216,${.12+.1*Math.sin(animT*3)})`;cx.fillRect(4*TS-camX,12*TS-camY,48,48)}
+  if(cur===MAPS.cave){cx.fillStyle=`rgba(224,74,90,${.12+.1*Math.sin(animT*3)})`;cx.fillRect(3*TS-camX,8*TS-camY,48,48)}
+  const list=cur.objs.filter(o=>!objHidden(o)).map(o=>({o,y:o.y*TS}));list.push({o:null,y:ppy});list.sort((a,b)=>a.y-b.y);
+  const fx=P.x+[0,-1,1,0][P.dir],fy=P.y+[1,0,0,-1][P.dir];
+  for(const{o}of list){
+    if(!o){
+      if(P.med){const k=animT*4%3;cx.strokeStyle=P.demon>=3?'#e04a5a':EL[P.el].c;cx.globalAlpha=.5+.3*Math.sin(animT*5);cx.strokeRect(ppx-camX-2.5-k,ppy-camY-2.5-k,21+2*k,21+2*k);cx.globalAlpha=1}
+      drawChar(cx,Math.round(ppx)-camX,Math.round(ppy)-camY-2,lookOf(P.look),P.med?0:P.dir,P.moving?(1+(P.step&1)):0);continue}
+    const sx=o.x*TS-camX,sy=o.y*TS-camY;
+    if(o.t==='npc'){if(o.spr)drawSpr(cx,SPR[o.spr],sx,sy+2);else drawChar(cx,sx,sy-2,o.look,o.face||0,0)}
+    else if(o.t==='herb'){const c=o.item==='ot'?'#7fe8a0':'#e04a5a';cx.fillStyle='#2f6e38';cx.fillRect(sx+7,sy+8,2,6);cx.fillRect(sx+4,sy+10,3,1);cx.fillRect(sx+9,sy+9,3,1);cx.fillStyle=c;cx.fillRect(sx+6,sy+5,4,3);cx.fillRect(sx+7,sy+4,2,1);
+      if(Math.floor(animT*2)&1){cx.fillStyle='#fff';cx.fillRect(sx+11,sy+3,1,1)}}
+    else if(o.t==='item'){const a=Math.floor(animT*4)&3;cx.fillStyle=o.item==='yesim'?'#7fe8d8':'#c8fff4';cx.fillRect(sx+6,sy+8,4,4);cx.fillStyle='#fff';cx.fillRect(sx+7+[0,3,0,-3][a],sy+9+[-4,0,4,0][a],1,1);cx.fillRect(sx+7,sy+9,2,2)}
+    else if(o.t==='chest'){cx.fillStyle='#6a4428';cx.fillRect(sx+2,sy+5,12,9);cx.fillStyle='#8a6238';cx.fillRect(sx+2,sy+5,12,3);cx.fillStyle='#e8b84a';cx.fillRect(sx+2,sy+8,12,1);cx.fillRect(sx+7,sy+7,2,3)}
+    else if(o.t==='sign'){cx.fillStyle='#5a3a22';cx.fillRect(sx+7,sy+8,2,7);cx.fillStyle='#b8905a';cx.fillRect(sx+2,sy+2,12,7);cx.fillStyle='#5a3a22';cx.fillRect(sx+4,sy+4,8,1);cx.fillRect(sx+4,sy+6,6,1)}
+    if(o.x===fx&&o.y===fy&&!busy&&!P.moving){const by=sy-11+Math.round(Math.sin(animT*5));cx.fillStyle='#12101c';cx.fillRect(sx+3,by,10,9);cx.fillStyle='#e8b84a';cx.fillRect(sx+4,by+1,8,7);cx.fillStyle='#12101c';cx.fillRect(sx+6,by+2,4,1);cx.fillRect(sx+6,by+2,1,5);cx.fillRect(sx+6,by+4,3,1);cx.fillRect(sx+6,by+6,4,1)}
+  }
+  if(cur===MAPS.sect){cx.fillStyle='#f8c0d0';for(const p of petals){const x=(p.x+animT*p.s)%330-5,y=(p.y+animT*p.s*.6+Math.sin(animT+p.x)*6)%214-3;cx.fillRect(x,y,2,1)}}
+  if(cur.dark){cx.fillStyle='rgba(30,10,40,.28)';cx.fillRect(0,0,320,208);cx.fillStyle='rgba(200,60,80,.06)';for(let i=0;i<5;i++)cx.fillRect((i*90+animT*14)%360-40,30+i*36,60,6)}
+  const mx=320-W-5,my=4;cx.fillStyle='#12101c';cx.fillRect(mx-2,my-2,W+4,H+4);cx.fillStyle='#ebe2cb';cx.fillRect(mx-1,my-1,W+2,H+2);cx.drawImage(cur.mini,mx,my);
+  cx.fillStyle=Math.floor(animT*3)&1?'#e8b84a':'#12101c';cx.fillRect(mx+P.x-1,my+P.y-1,3,3);cx.fillStyle='#e8b84a';cx.fillRect(mx+P.x,my+P.y,1,1);
+}
+
+/* ---------- Giriş ---------- */
+const KM={ArrowUp:'up',KeyW:'up',ArrowDown:'down',KeyS:'down',ArrowLeft:'left',KeyA:'left',ArrowRight:'right',KeyD:'right'};
+addEventListener('keydown',e=>{
+  if(e.target&&e.target.tagName==='INPUT')return;
+  if(/^Digit[1-9]$/.test(e.code)){const box=!$('#battle').hidden?$('#bact'):!dlg.hidden?$('#dch'):null;const b=box&&box.children[+e.code[5]-1];if(b&&!b.disabled){b.click();e.preventDefault()}return}
+  if(scene!=='play')return;
+  if(KM[e.code]){keys[KM[e.code]]=true;e.preventDefault();return}
+  if(e.repeat)return;
+  if(e.code==='Escape'&&!$('#menu').hidden){closeMenu();return}
+  if(!$('#menu').hidden||!$('#battle').hidden)return;
+  if(e.code==='KeyE'||e.code==='Space'||e.code==='Enter'){e.preventDefault();interact()}
+  else if(e.code==='KeyM')meditate();else if(e.code==='KeyI')openMenu('kar');else if(e.code==='KeyQ')openMenu('gor');else if(e.code==='KeyN')openMenu('map')});
+addEventListener('keyup',e=>{if(KM[e.code])keys[KM[e.code]]=false});
+addEventListener('blur',()=>{for(const k in keys)keys[k]=false});
+[['pu','up'],['pd','down'],['pl','left'],['pr','right']].forEach(([id,k])=>{const b=$('#'+id);
+  b.addEventListener('pointerdown',e=>{e.preventDefault();keys[k]=true});['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,()=>keys[k]=false))});
+$('#pa').onclick=interact;$('#pm').onclick=meditate;$('#pi').onclick=()=>openMenu('kar');$('#pn2').onclick=()=>openMenu('map');
+
+/* ---------- Başlık ve karakter oluşturma ---------- */
+function drawBanner(){const c=$('#banner').getContext('2d'),r=rng(7);
+  ['#141230','#1c1a40','#2a2456','#3c2e66','#5a3a70'].forEach((col,i)=>{c.fillStyle=col;c.fillRect(0,i*18,320,130)});
+  c.fillStyle='#fff';for(let i=0;i<50;i++)c.fillRect(r()*320|0,r()*70|0,1,1);
+  c.fillStyle='#f4e8c0';c.beginPath();c.arc(250,30,14,0,7);c.fill();c.fillStyle='#e0d0a0';c.fillRect(244,26,4,3);c.fillRect(254,34,3,2);
+  [['#3a3466',70,22,.05],['#2a2650',88,18,.08],['#1a1838',104,12,.13]].forEach(([col,b,a,f],k)=>{c.fillStyle=col;for(let x=0;x<320;x++){const h=b-Math.abs(Math.sin(x*f+k*2))*a-Math.sin(x*f*2.7+k)*5;c.fillRect(x,h|0,1,130)}});
+  c.fillStyle='#0e0c20';c.fillRect(140,58,40,14);c.fillRect(134,54,52,4);c.fillRect(148,46,24,8);c.fillRect(142,42,36,4);c.fillStyle='#e8b84a';c.fillRect(156,62,3,6);c.fillRect(164,62,3,6);
+  c.fillStyle='rgba(220,230,250,.5)';for(let i=0;i<7;i++){const x=r()*300|0,y=78+(r()*40|0);c.fillRect(x,y,30+(r()*30|0),3);c.fillRect(x+6,y-2,18,2)}
+  c.save();c.translate(60,40);c.fillStyle='#c8f5e4';c.fillRect(-4,15,26,1);drawChar(c,0,0,NL(1,'#f6dcc0','#1c1a24',1,'#2a2030','#e8e8f0',0,1,'#3a6ab8',2),2,0);c.restore();
+  c.save();c.translate(268,74);c.fillStyle='#e04a5a';c.fillRect(-4,15,26,1);drawChar(c,0,0,NL(0,'#b8c4c8','#1c1a24',6,'#e02a3a','#2a2a36',1,7,'#8a1a2a',3),1,0);c.restore()}
+let pvDir=0;
+const OPTS=[['g',['Cinsiyet','Gender'],[['Erkek','Male'],['Kadın','Female']]],['build',['Beden yapısı','Build'],BUILD],['skin',['Ten rengi','Skin'],SKINS,1],['hs',['Saç stili','Hair style'],HSTYLE],['hair',['Saç rengi','Hair color'],HAIRC,1],['eye',['Göz rengi','Eye color'],EYEC,1],
+  ['outfit',['Kıyafet şekli','Outfit style'],OUTFIT],['robe',['Kıyafet ana renk','Outfit main color'],ROBEC,1],['robe2',['Kıyafet ikinci renk','Outfit second color'],ROBEC,1],['acc',['Aksesuar','Accessory'],ACC]];
+function drawCreate(){
+  const o=$('#opts');o.innerHTML='';
+  const nr=el('div',null,'opt');nr.appendChild(el('span',T('Dao adı','Dao name')));const inp=document.createElement('input');inp.id='nm';inp.maxLength=16;inp.value=C.name;inp.placeholder=T('Adını yaz','Enter a name');inp.setAttribute('aria-label',T('Dao adı','Dao name'));
+  inp.oninput=()=>{C.name=inp.value};nr.appendChild(inp);o.appendChild(nr);
+  OPTS.forEach(([k,label,vals,col])=>{const row=el('div',null,'opt');row.appendChild(el('span',tx(label)));const v=el('div',null,'vals');
+    vals.forEach((val,i)=>{const b=el('button',col?'':tx(val),(col?'sw ':'')+(C.look[k]===i?'on':''));if(col){b.style.background=val;b.setAttribute('aria-label',tx(label)+' '+(i+1))}
+      b.onclick=()=>{C.look[k]=i;drawCreate()};v.appendChild(b)});row.appendChild(v);o.appendChild(row)});
+  const ev=$('#elv');ev.innerHTML='';['metal','wood','water','fire','earth'].forEach(k=>{const b=el('button',tx(EL[k].n),C.el===k?'on':'');b.style.color=EL[k].c;b.onclick=()=>{C.el=k;C.root=null;drawCreate()};ev.appendChild(b)});
+  const rr=$('#rootres');rr.innerHTML='';
+  if(C.root){const R=ROOTS[C.root];const b=el('b',(C.mut?T('Mutasyon! Yıldırım · ','Mutation! Thunder · '):tx(EL[C.el].n)+' · ')+tx(R.n));b.style.color=EL[C.mut?'thunder':C.el].c;rr.appendChild(b);
+    rr.appendChild(el('span',' — '+tx(R.d)+(C.mut?T(' Elementin yıldırıma dönüştü: her şeye karşı güçlü saldırır.',' Your element mutated into thunder: strong against everything.'):'')+T(' Gelişim hızı ×',' Cultivation speed ×')+R.m))}
+  else rr.textContent=T('Ruh kökü, Qi\'yi bedene çeken kapıdır. Elementini seç ve ölçüm taşına dokun. Kader üç kez sorulabilir.','The spirit root is the gate that draws Qi into the body. Choose your element and touch the testing stone. Fate may be asked three times.');
+  $('#roll').textContent=T(`Ruh Ölçüm Taşına Dokun (${C.rolls})`,`Touch the Testing Stone (${C.rolls})`);$('#roll').disabled=C.rolls<=0;
+  const or=$('#origres');or.innerHTML='';
+  if(C.origin){const O=ORIG[C.origin];const b=el('b',tx(O.n));b.style.color=C.origin==='blood'?'#d8566a':'#5fd0a8';or.appendChild(b);or.appendChild(el('span',' — '+tx(O.d)))}
+  else or.textContent=T('Hangi kapının önünde doğacağını sen seçemezsin: ortodoks bir tarikat, başıboş bir yol ya da şeytani bir mağara. Kader zarını at; sonucu beğenmezsen iki kez daha atabilirsin.','You do not choose at whose gate you are born: an orthodox sect, a masterless road, or a demonic cave. Cast the die of fate; if you dislike the result you may cast twice more.');
+  $('#oroll').textContent=T(`Kader Zarını At (${C.orolls})`,`Cast the Die of Fate (${C.orolls})`);$('#oroll').disabled=C.orolls<=0;
+  $('#start').disabled=!C.root||!C.origin}
+function wpick(tbl){let t=Math.random()*Object.values(tbl).reduce((a,b)=>a+b.w,0),k;for(k in tbl){t-=tbl[k].w;if(t<0)break}return k}
+function newChar(){C={name:'',el:'fire',root:null,mut:false,rolls:3,origin:null,orolls:3,look:{g:0,skin:0,hair:0,hs:2,eye:0,robe:0,robe2:1,outfit:0,build:1,acc:0}};pvDir=0;drawCreate()}
+$('#ltr').onclick=()=>{LANG=0;applyLang()};$('#len').onclick=()=>{LANG=1;applyLang()};
+$('#bnew').onclick=()=>{$('#title').hidden=true;$('#create').hidden=false;scene='create';newChar()};
+$('#back').onclick=()=>{$('#create').hidden=true;$('#title').hidden=false;scene='title'};
+$('#rnd').onclick=()=>{const l=C.look;l.g=rnd(0,1);l.skin=rnd(0,SKINS.length-1);l.hair=rnd(0,HAIRC.length-1);l.hs=rnd(0,HSTYLE.length-1);l.eye=rnd(0,EYEC.length-1);l.robe=rnd(0,ROBEC.length-1);l.robe2=rnd(0,ROBEC.length-1);l.outfit=rnd(0,OUTFIT.length-1);l.build=rnd(0,2);l.acc=rnd(0,ACC.length-1);drawCreate()};
+$('#turnl').onclick=()=>{pvDir=[1,3,0,2][pvDir]};$('#turnr').onclick=()=>{pvDir=[2,0,3,1][pvDir]};
+$('#roll').onclick=()=>{if(C.rolls<=0)return;C.rolls--;C.root=wpick(ROOTS);C.mut=C.root==='gok'&&Math.random()<.3;drawCreate()};
+$('#oroll').onclick=()=>{if(C.orolls<=0)return;C.orolls--;let k;do{k=wpick(ORIG)}while(k===C.origin);C.origin=k;drawCreate()};
+$('#start').onclick=()=>{
+  const og=C.origin,d=og==='blood';
+  P={name:(C.name||'').trim()||T('Adsız Mürit','Nameless Disciple'),look:C.look,el:C.mut?'thunder':C.el,root:C.root,origin:og,faction:d?'d':'o',demon:d?5:0,L:1,xp:0,hp:1,qi:1,st:10,wpn:og==='shu'?1:0,karma:0,inv:{},flags:{},seen:{},main:0,kurt:0,map:'sect',x:16,y:11,dir:3};
+  if(d){P.map='cave';P.x=12;P.y=8}
+  if(og==='rogue'){P.map='town';P.x=16;P.y=6;P.st=40}
+  if(og==='danxia'){P.inv={qihap:3,sifahap:2};P.flags.alchemy=1}
+  heal();startPlay();
+  const eln=tx(EL[P.el].n),rtn=tx(ROOTS[P.root].n);
+  run(async()=>{
+    await talk('',T(`Dao Takvimi 9872. Ruh kökün: ${eln} · ${rtn}.\nKökenin: ${tx(ORIG[og].n)}.`,`Dao Calendar, year 9872. Your spirit root: ${eln} · ${rtn}.\nYour origin: ${tx(ORIG[og].n)}.`));
+    await talk('',d?T('Gözlerini bir mağarada açtın. Hava demir ve kan kokuyor. Köyün yandığı gece seni buraya getirdiler; ölçüm taşı parlayınca adak olmaktan kurtuldun. Sunağın önünde boynuzlu bir adam seni bekliyor. (Yanına git, E ile konuş.)','You open your eyes in a cave. The air smells of iron and blood. They brought you here the night your village burned; when the testing stone lit, you were spared the altar. A horned man waits before it. (Walk up and press E.)')
+      :og==='rogue'?T('Qingshi Kasabası\'nın pazar yolundasın. Cebinde kırk ruh taşı, sırtında eski bir kılıç. Ustasız gelişim çıkmaz sokaktır: kuzeydeki yoldan Kunlun\'a çık, Yeşim Boşluk Sarayı\'nda şansını dene.','You stand on the market road of Qingshi Town with forty spirit stones and an old sword. Cultivating without a master is a dead end: take the north road up Kunlun and try your luck at the Jade Void Palace.')
+      :og==='shu'?T('Shu Dağı ile Kunlun arasındaki ittifak gereği, bu yıl Yeşim Boşluk Sarayı\'nda konuk mürit olarak eğitileceksin. Ana salonun önünde ak saçlı bir adam seni bekliyor. (E ile konuş.)','Under the pact between Shu Mountain and Kunlun, you will train this year as a guest disciple of the Jade Void Palace. A white-haired man waits before the main hall. (Press E to talk.)')
+      :og==='danxia'?T('Dan Xia Vadisi seni Kunlun\'a gönderdi: "Hap yapmayı öğrendin, şimdi yaşamayı öğren." Ana salonun önünde ak saçlı bir adam seni bekliyor. (E ile konuş.)','Danxia Valley sent you to Kunlun: "You have learned to make pills; now learn to live." A white-haired man waits before the main hall. (Press E to talk.)')
+      :T('Bugün Yeşim Boşluk Sarayı\'nın dış kapısındaki ilk günün. Ana salonun önünde ak saçlı bir adam seni bekliyor. (Yanına git ve E ile konuş.)','Today is your first day in the outer court of the Jade Void Palace. A white-haired man waits before the main hall. (Walk up and press E.)'))})};
+$('#bcont').onclick=()=>{const s=loadSave();if(s){P=s;startPlay()}};
+function startPlay(){P.moving=false;P.med=false;P.flags=P.flags||{};P.inv=P.inv||{};P.seen=P.seen||{};P.demon=P.demon||0;P.faction=P.faction||'o';P.origin=P.origin||'jade';
+  const l=P.look;if(l.robe2==null)l.robe2=6;if(l.outfit==null)l.outfit=0;
+  scene='play';$('#title').hidden=true;$('#create').hidden=true;$('#hud').hidden=false;cur=MAPS[P.map]||MAPS.sect;P.seen[P.map]=1;hud()}
+
+/* ---------- Döngü ---------- */
+let last=0;
+function frame(t){const dt=Math.min(.05,(t-last)/1000||0);last=t;update(dt);render();
+  if(scene==='create'&&C){const c=$('#pvc').getContext('2d');c.fillStyle='#2c5a3c';c.fillRect(0,0,176,176);c.fillStyle='#3a7048';c.fillRect(0,150,176,26);
+    c.save();c.scale(9,9);const f=Math.floor(animT*3)%4;drawChar(c,1.8,2.2,lookOf(C.look),pvDir,[0,1,0,2][f]);c.restore()}
+  if(scene==='play'&&mtab==='map'&&!$('#menu').hidden)drawMaps();
+  requestAnimationFrame(frame)}
+function boot(d){mkTiles();mkMaps();drawBanner();cx.imageSmoothingEnabled=false;applyLang();
+  if(d&&d.save){P=d.save;startPlay()}else if(loadSave())$('#bcont').hidden=false;
+  requestAnimationFrame(frame)}
+const hot=window.claude&&window.claude.hot;
+try{if(hot&&hot.snapshot)hot.snapshot(()=>({save:scene==='play'?P:null}))}catch(e){}
+if(hot&&hot.ready)hot.ready(d=>boot(d||{}));else boot((hot&&hot.data)||{});
+})();
+</script>
+
+</body></html>
